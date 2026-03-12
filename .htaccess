@@ -1,0 +1,103 @@
+# HeypVietNam .htaccess for Local XAMPP and Production
+# Increase PHP upload limits for video files and large images
+php_value upload_max_filesize 50M
+php_value post_max_size 60M
+php_value max_execution_time 300
+php_value max_input_time 300
+php_value memory_limit 512M
+
+# MySQL connection settings to prevent "server has gone away" errors
+php_value mysql.connect_timeout 60
+php_value default_socket_timeout 60
+
+RewriteEngine On
+
+# Allow direct access to static files in public directory
+# Development environment (localhost/heypvietnam)
+RewriteCond %{HTTP_HOST} localhost
+RewriteCond %{REQUEST_URI} ^/heypvietnam/public/
+RewriteRule ^(.*)$ - [L]
+
+# Production environment
+RewriteCond %{HTTP_HOST} !localhost
+RewriteCond %{REQUEST_URI} ^/public/
+RewriteRule ^(.*)$ - [L]
+
+# Allow direct access to image.php
+# Development environment
+RewriteCond %{HTTP_HOST} localhost
+RewriteCond %{REQUEST_URI} ^/heypvietnam/image\.php
+RewriteRule ^(.*)$ - [L]
+
+# Production environment
+RewriteCond %{HTTP_HOST} !localhost
+RewriteCond %{REQUEST_URI} ^/image\.php
+RewriteRule ^(.*)$ - [L]
+
+# Route everything else through index.php
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^(.+)$ index.php?url=$1 [QSA,L]
+
+# Enable caching for static files (better for production)
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+    <FilesMatch "\.(html|php)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires 0
+    </FilesMatch>
+</IfModule>
+
+# Set correct MIME types
+<IfModule mod_mime.c>
+    AddType text/css .css
+    AddType application/javascript .js
+    AddType image/png .png
+    AddType image/jpeg .jpg
+    AddType image/jpeg .jpeg
+    AddType image/gif .gif
+    AddType image/svg+xml .svg
+</IfModule>
+
+# Force correct MIME type for CSS files
+<FilesMatch "\.css$">
+    ForceType text/css
+</FilesMatch>
+
+<FilesMatch "\.js$">
+    ForceType application/javascript
+</FilesMatch>
+
+# Security headers for x10hosting
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Prevent access to sensitive files
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files "database.sql">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+<Files ".env">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Set default charset
+AddDefaultCharset UTF-8
+
+# Error pages
+ErrorDocument 404 /index.php
+ErrorDocument 403 /index.php
