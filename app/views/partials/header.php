@@ -1,10 +1,17 @@
 <!-- Font Awesome CDN -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
+<?php
+$landingNavItems = isset($data['landingNavItems']) && is_array($data['landingNavItems']) ? $data['landingNavItems'] : [];
+$headerEscape = function($value) {
+    return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+};
+?>
+
 <header class="site-header">
     <div class="header-container">
         <div class="logo">
-            <a href="<?php echo URL_ROOT; ?>">
+            <a href="<?php echo URL_ROOT; ?>" data-logo-reload>
                 <div class="logo-container">
                     <img src="<?php echo URL_ROOT; ?>/public/img/logoHEYP.png" alt="<?php echo SITE_NAME; ?>" class="circular-logo">
                     <span class="logo-text">HEYPVIETNAM</span>
@@ -13,18 +20,36 @@
         </div>
         <nav class="main-nav">
             <ul>
-                <li><a href="<?php echo URL_ROOT; ?>">Trang Chủ</a></li>
-                <li><a href="<?php echo URL_ROOT; ?>/about">Giới Thiệu</a></li>
-                <li class="dropdown">
-                    <a href="<?php echo URL_ROOT; ?>/products" class="dropdown-toggle">Sản Phẩm</a>
-                    <ul class="custom-dropdown-menu">
-                        <li><a href="<?php echo URL_ROOT; ?>/products/category/1">Túi, màng bọc thực phẩm</a></li>
-                        <li><a href="<?php echo URL_ROOT; ?>/products/category/2">Tắm & chăm sóc cơ thể</a></li>
-                        <li><a href="<?php echo URL_ROOT; ?>/products/category/3">Đồ dùng phòng tắm</a></li>
-                        <li><a href="<?php echo URL_ROOT; ?>/products/category/4">Giặt giũ & Chăm sóc nhà cửa</a></li>
-                        <li><a href="<?php echo URL_ROOT; ?>/products/category/5">Đồ dùng nhà bếp và hộp đựng thực phẩm</a></li>
-                    </ul>
-                </li>
+                <?php if (!empty($landingNavItems)): ?>
+                    <li><a href="<?php echo URL_ROOT; ?>/#top" data-scroll-top class="active">Trang Chủ</a></li>
+                    <?php foreach ($landingNavItems as $item): ?>
+                        <?php
+                            $anchorId = $item['anchorId'] ?? '';
+                            $label = $item['label'] ?? '';
+                            if ($anchorId === '' || $label === '') {
+                                continue;
+                            }
+                        ?>
+                        <li>
+                            <a href="<?php echo URL_ROOT; ?>/#<?php echo $headerEscape($anchorId); ?>" data-scroll-target="<?php echo $headerEscape($anchorId); ?>">
+                                <?php echo $headerEscape($label); ?>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <li><a href="<?php echo URL_ROOT; ?>">Trang Chủ</a></li>
+                    <li><a href="<?php echo URL_ROOT; ?>/about">Giới Thiệu</a></li>
+                    <li class="dropdown">
+                        <a href="<?php echo URL_ROOT; ?>/products" class="dropdown-toggle">Sản Phẩm</a>
+                        <ul class="custom-dropdown-menu">
+                            <li><a href="<?php echo URL_ROOT; ?>/products/category/1">Túi, màng bọc thực phẩm</a></li>
+                            <li><a href="<?php echo URL_ROOT; ?>/products/category/2">Tắm & chăm sóc cơ thể</a></li>
+                            <li><a href="<?php echo URL_ROOT; ?>/products/category/3">Đồ dùng phòng tắm</a></li>
+                            <li><a href="<?php echo URL_ROOT; ?>/products/category/4">Giặt giũ & Chăm sóc nhà cửa</a></li>
+                            <li><a href="<?php echo URL_ROOT; ?>/products/category/5">Đồ dùng nhà bếp và hộp đựng thực phẩm</a></li>
+                        </ul>
+                    </li>
+                <?php endif; ?>
             </ul>
         </nav>
         <div class="mobile-menu-toggle">
@@ -122,6 +147,12 @@
     .main-nav ul li a:hover {
         color: #5A6B00;
         background: rgba(90, 107, 0, 0.1);
+        border-radius: 5px;
+    }
+
+    .main-nav ul li a.active {
+        color: #5A6B00;
+        background: rgba(90, 107, 0, 0.14);
         border-radius: 5px;
     }
     
@@ -264,17 +295,54 @@
         const mobileMenuToggle = document.querySelector('.mobile-menu-toggle');
         const mainNav = document.querySelector('.main-nav');
         const dropdowns = document.querySelectorAll('.dropdown');
+        const header = document.querySelector('.site-header');
+        const logoReloadLink = document.querySelector('[data-logo-reload]');
+        const topLinks = Array.from(document.querySelectorAll('[data-scroll-top]'));
+        const sectionLinks = Array.from(document.querySelectorAll('[data-scroll-target]'));
+        const navLinks = topLinks.concat(sectionLinks);
+        const sections = sectionLinks
+            .map(link => document.getElementById(link.dataset.scrollTarget))
+            .filter(Boolean);
+
+        const closeMobileMenu = function() {
+            if (!mobileMenuToggle || !mainNav) {
+                return;
+            }
+
+            mainNav.classList.remove('active');
+            mobileMenuToggle.classList.remove('active');
+            document.body.classList.remove('menu-open');
+        };
 
         // Xử lý menu mobile
-        mobileMenuToggle.addEventListener('click', function() {
-            mobileMenuToggle.classList.toggle('active');
-            mainNav.classList.toggle('active');
-            document.body.classList.toggle('menu-open');
-        });
+        if (mobileMenuToggle && mainNav) {
+            mobileMenuToggle.addEventListener('click', function() {
+                mobileMenuToggle.classList.toggle('active');
+                mainNav.classList.toggle('active');
+                document.body.classList.toggle('menu-open');
+            });
+        }
+
+        if (logoReloadLink) {
+            logoReloadLink.addEventListener('click', function(e) {
+                const targetUrl = new URL(this.href, window.location.href);
+                const currentPath = window.location.pathname.replace(/\/$/, '');
+                const targetPath = targetUrl.pathname.replace(/\/$/, '');
+
+                if (window.location.origin === targetUrl.origin && currentPath === targetPath) {
+                    e.preventDefault();
+                    window.location.reload();
+                }
+            });
+        }
 
         // Xử lý dropdown trên mobile
         dropdowns.forEach(dropdown => {
             const toggle = dropdown.querySelector('.dropdown-toggle');
+            if (!toggle) {
+                return;
+            }
+
             toggle.addEventListener('click', function(e) {
                 if (window.innerWidth <= 768) {
                     e.preventDefault();
@@ -286,13 +354,15 @@
         // Ngăn chặn đóng dropdown khi hover trên desktop
         dropdowns.forEach(dropdown => {
             dropdown.addEventListener('mouseleave', function() {
-                if (window.innerWidth > 768) {
-                    dropdown.querySelector('.custom-dropdown-menu').style.display = 'none';
+                const menu = dropdown.querySelector('.custom-dropdown-menu');
+                if (window.innerWidth > 768 && menu) {
+                    menu.style.display = 'none';
                 }
             });
             dropdown.addEventListener('mouseenter', function() {
-                if (window.innerWidth > 768) {
-                    dropdown.querySelector('.custom-dropdown-menu').style.display = 'block';
+                const menu = dropdown.querySelector('.custom-dropdown-menu');
+                if (window.innerWidth > 768 && menu) {
+                    menu.style.display = 'block';
                 }
             });
         });
@@ -300,22 +370,105 @@
         // Cập nhật khi resize
         window.addEventListener('resize', function() {
             if (window.innerWidth > 768) {
-                mainNav.classList.remove('active');
-                mobileMenuToggle.classList.remove('active');
-                document.body.classList.remove('menu-open');
+                closeMobileMenu();
                 dropdowns.forEach(dropdown => dropdown.classList.remove('active'));
             }
         });
 
         // Thêm hiệu ứng scroll cho header
         window.addEventListener('scroll', function() {
-            const header = document.querySelector('.site-header');
+            if (!header) {
+                return;
+            }
+
             if (window.scrollY > 50) {
                 header.classList.add('scrolled');
             } else {
                 header.classList.remove('scrolled');
             }
         });
+
+        const setActiveNav = function(anchorId) {
+            navLinks.forEach(link => link.classList.remove('active'));
+
+            if (!anchorId) {
+                topLinks.forEach(link => link.classList.add('active'));
+                return;
+            }
+
+            sectionLinks.forEach(link => {
+                if (link.dataset.scrollTarget === anchorId) {
+                    link.classList.add('active');
+                }
+            });
+        };
+
+        const updateActiveSection = function() {
+            if (!sections.length) {
+                return;
+            }
+
+            const headerOffset = header ? header.offsetHeight : 0;
+            const marker = headerOffset + 48;
+            let activeId = '';
+
+            sections.forEach(section => {
+                if (section.getBoundingClientRect().top <= marker) {
+                    activeId = section.id;
+                }
+            });
+
+            if (window.scrollY <= 8 || activeId === '') {
+                setActiveNav('');
+                return;
+            }
+
+            setActiveNav(activeId);
+        };
+
+        let scrollFrame = null;
+        window.addEventListener('scroll', function() {
+            if (scrollFrame) {
+                return;
+            }
+
+            scrollFrame = window.requestAnimationFrame(function() {
+                updateActiveSection();
+                scrollFrame = null;
+            });
+        });
+
+        sectionLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                const target = document.getElementById(this.dataset.scrollTarget);
+                if (!target) {
+                    return;
+                }
+
+                e.preventDefault();
+                target.scrollIntoView({ behavior: 'smooth' });
+                history.replaceState(null, '', '#' + this.dataset.scrollTarget);
+                setActiveNav(this.dataset.scrollTarget);
+                closeMobileMenu();
+            });
+        });
+
+        topLinks.forEach(link => {
+            link.addEventListener('click', function(e) {
+                const top = document.getElementById('top');
+                if (!top) {
+                    return;
+                }
+
+                e.preventDefault();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                history.replaceState(null, '', window.location.pathname);
+                setActiveNav('');
+                closeMobileMenu();
+            });
+        });
+
+        updateActiveSection();
 
         // CSS động cho body khi menu mobile mở
         const style = document.createElement('style');

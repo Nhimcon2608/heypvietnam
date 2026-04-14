@@ -86,6 +86,7 @@ class AdminController extends Controller {
     protected $productVideo;
     protected $productCustomField;
     protected $settingManager;
+    protected $page;
     
     public function __construct() {
         // Clean any output buffer to prevent redirect issues
@@ -101,6 +102,7 @@ class AdminController extends Controller {
         $this->productImage = $this->model('ProductImage'); // Thêm model ProductImage
         $this->productVideo = $this->model('ProductVideo'); // Thêm model ProductVideo
         $this->productCustomField = $this->model('ProductCustomField'); // Thêm model ProductCustomField
+        $this->page = $this->model('Page');
         $this->admin = $this->model('Admin'); // Load Admin model
         
         // Khởi tạo SettingManager một lần
@@ -115,53 +117,31 @@ class AdminController extends Controller {
             redirect('admin');
             exit;
         }
+
+        if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true && in_array($currentAction, ['dashboard', 'products', 'categories', 'settings'], true)) {
+            redirect('admin/pages');
+            exit;
+        }
     }
     
     // Get the current action/method name
     private function getCurrentAction() {
-        $uri = $_SERVER['REQUEST_URI'];
-        
-        // Check if we're in admin section
-        if (strpos($uri, '/admin/') !== false || $uri == '/admin') {
-            // Extract action from URI
-            $parts = isset($uri) && !empty($uri) ? explode('/', $uri) : [];
-            
-            // If admin is the last part, the action is 'index'
-            if (empty($parts) || end($parts) == 'admin') {
-                return 'index';
-            }
-            
-            // Otherwise, the action is the part after 'admin/'
-            $adminPos = array_search('admin', $parts);
-            if ($adminPos !== false && isset($parts[$adminPos + 1])) {
-                $action = $parts[$adminPos + 1];
-                
-                // Remove query string if present
-                if (strpos($action, '?') !== false) {
-                    $action = substr($action, 0, strpos($action, '?'));
-                }
-                
-                return $action;
-            }
-            
-            // Default to index if we can't determine the action
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+        $segments = array_values(array_filter(explode('/', trim((string) $path, '/')), 'strlen'));
+        $adminIndex = array_search('admin', $segments, true);
+
+        if ($adminIndex === false) {
             return 'index';
         }
-        
-        // For non-admin pages, use the original method
-        $action = isset($uri) && !empty($uri) ? explode('/', $uri) : [];
-        $action = !empty($action) ? end($action) : 'index';
-        if (is_string($action) && strpos($action, '?') !== false) {
-            $action = substr($action, 0, strpos($action, '?'));
-        }
-        return $action;
+
+        return $segments[$adminIndex + 1] ?? 'index';
     }
     
     // Login page
     public function index() {
-        // If already logged in, redirect to dashboard
+        // If already logged in, go directly to the landing page editor
         if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true) {
-            redirect('admin/dashboard');
+            redirect('admin/pages');
             exit;
         }
         
@@ -182,7 +162,7 @@ class AdminController extends Controller {
                     $_SESSION['admin_username'] = $admin['username'];
                     $_SESSION['admin_logged_in'] = true;
 
-                    redirect('admin/dashboard');
+                    redirect('admin/pages');
                     exit;
                 } else {
                     $error = 'Tên đăng nhập hoặc mật khẩu không đúng';
@@ -198,54 +178,428 @@ class AdminController extends Controller {
     
     // Dashboard
     public function dashboard() {
-        // Log thông tin debug
-        error_log("AdminController::dashboard() đang được gọi");
-        
-        $productsCount = $this->product->getCount();
-        $categoriesCount = $this->category->getCount();
-        
-        // Get featured products count using the new method
-        $featuredCount = $this->product->getFeaturedCount();
-        
-        // Get total product views using the new method
-        $totalViews = $this->product->getTotalViews();
-        
-        // Get recent activity (could be implemented with a separate Activity model)
-        // For now, we'll just create sample data
-        $recentActivity = [
-            [
-                'action' => 'Thêm sản phẩm mới',
-                'item' => 'Cà Phê Robusta',
-                'time' => '2 giờ trước',
-                'icon' => 'fas fa-plus'
+        redirect('admin/pages');
+        exit;
+    }
+
+    // Landing page block editor
+    public function pages() {
+        $slug = 'home';
+        $title = 'Trang Chủ';
+        $defaultPage = $this->defaultLandingPageContent();
+        $message = '';
+        $error = '';
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $rawJson = $_POST['content_json'] ?? '';
+            $decoded = json_decode($rawJson, true);
+
+            if (!is_array($decoded)) {
+                $error = 'JSON không hợp lệ. Vui lòng kiểm tra lại nội dung trang.';
+            } else {
+                $decoded = $this->normalizeLandingPageContent($decoded);
+                $this->page->saveBySlug($slug, $decoded, $title);
+                $message = 'Đã lưu landing page.';
+            }
+        }
+
+        $pageRow = $this->page->getOrCreateBySlug($slug, $title, $defaultPage);
+        $page = json_decode($pageRow['content'], true);
+        if (!is_array($page)) {
+            $page = $defaultPage;
+            $this->page->saveBySlug($slug, $page, $title);
+        }
+
+        $page = $this->normalizeLandingPageContent($page);
+
+        $this->view('admin/pages/editor', [
+            'title' => 'Landing Page Builder',
+            'page' => $page,
+            'page_json' => json_encode($page, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
+            'message' => $message,
+            'error' => $error
+        ]);
+    }
+
+    private function defaultLandingPageContent() {
+        return [
+            'header' => [
+                'logo' => 'public/img/logoHEYP.png'
             ],
-            [
-                'action' => 'Cập nhật danh mục',
-                'item' => 'Cà Phê Đặc Biệt',
-                'time' => '1 ngày trước',
-                'icon' => 'fas fa-edit'
+            'layoutType' => 'canvas',
+            'canvas' => [
+                'width' => 1200,
+                'height' => 760,
+                'backgroundColor' => '#ffffff'
             ],
-            [
-                'action' => 'Đánh dấu sản phẩm nổi bật',
-                'item' => 'Cà Phê Arabica',
-                'time' => '3 ngày trước',
-                'icon' => 'fas fa-star'
+            'elements' => [
+                [
+                    'id' => 'hero-title',
+                    'type' => 'text',
+                    'x' => 90,
+                    'y' => 92,
+                    'width' => 650,
+                    'height' => 130,
+                    'zIndex' => 1,
+                    'content' => 'Sản phẩm xanh cho lối sống bền vững',
+                    'style' => [
+                        'fontFamily' => 'Montserrat',
+                        'fontSize' => 46,
+                        'fontWeight' => '700',
+                        'color' => '#243528',
+                        'backgroundColor' => 'transparent',
+                        'borderRadius' => 0
+                    ]
+                ],
+                [
+                    'id' => 'hero-copy',
+                    'type' => 'text',
+                    'x' => 92,
+                    'y' => 250,
+                    'width' => 520,
+                    'height' => 120,
+                    'zIndex' => 2,
+                    'content' => 'HEYP cung cấp các sản phẩm làm sạch trong gia đình từ xà phòng truyền thống, thân thiện môi trường.',
+                    'style' => [
+                        'fontFamily' => 'Open Sans',
+                        'fontSize' => 24,
+                        'fontWeight' => '400',
+                        'color' => '#1f2937',
+                        'backgroundColor' => 'transparent',
+                        'borderRadius' => 0
+                    ]
+                ],
+                [
+                    'id' => 'hero-logo',
+                    'type' => 'image',
+                    'x' => 760,
+                    'y' => 130,
+                    'width' => 300,
+                    'height' => 300,
+                    'zIndex' => 3,
+                    'src' => 'public/img/logoHEYP.png',
+                    'content' => 'Heyp Logo',
+                    'style' => [
+                        'fontFamily' => 'Open Sans',
+                        'fontSize' => 18,
+                        'fontWeight' => '400',
+                        'color' => '#1f2937',
+                        'backgroundColor' => 'transparent',
+                        'borderRadius' => 8
+                    ],
+                ]
             ]
         ];
-        
-        $data = [
-            'title' => 'Bảng điều khiển',
-            'productsCount' => $productsCount,
-            'categoriesCount' => $categoriesCount,
-            'featuredCount' => $featuredCount,
-            'totalViews' => $totalViews,
-            'recentActivity' => $recentActivity
+    }
+
+    private function normalizeLandingPageContent(array $page) {
+        if (($page['layoutType'] ?? '') === 'canvas' || isset($page['elements'])) {
+            return $this->normalizeCanvasPageContent($page);
+        }
+
+        if (!isset($page['header']) || !is_array($page['header'])) {
+            $page['header'] = ['logo' => 'public/img/logoHEYP.png'];
+        }
+
+        if (!isset($page['sections']) || !is_array($page['sections'])) {
+            $page['sections'] = [];
+        }
+
+        $sections = [];
+        foreach ($page['sections'] as $index => $section) {
+            if (!is_array($section)) {
+                continue;
+            }
+
+            $heading = isset($section['heading']) && is_array($section['heading']) ? $section['heading'] : [];
+            $fallbackId = 'section-' . ($index + 1);
+            $rawId = $section['id'] ?? $heading['anchorId'] ?? $heading['text'] ?? $fallbackId;
+            $sectionId = $this->normalizeLandingAnchorId($rawId, $fallbackId);
+
+            if (!empty($heading)) {
+                $headingLevel = isset($heading['level']) ? (int) $heading['level'] : 1;
+                $heading['level'] = in_array($headingLevel, [1, 2, 3], true) ? $headingLevel : 1;
+                $heading['text'] = (string) ($heading['text'] ?? '');
+                $heading['anchorId'] = $sectionId;
+                $heading['style'] = $this->normalizeLandingBlockStyle($heading['style'] ?? [], 'heading');
+            }
+
+            $blocks = [];
+            foreach (($section['blocks'] ?? []) as $block) {
+                if (!is_array($block)) {
+                    continue;
+                }
+
+                $type = $block['type'] ?? '';
+                if ($type === 'heading') {
+                    $level = isset($block['level']) ? (int) $block['level'] : 2;
+                    $blocks[] = [
+                        'type' => 'heading',
+                        'level' => in_array($level, [1, 2, 3], true) ? $level : 2,
+                        'content' => (string) ($block['content'] ?? $block['text'] ?? ''),
+                        'style' => $this->normalizeLandingBlockStyle($block['style'] ?? [], 'heading')
+                    ];
+                } elseif ($type === 'text') {
+                    $blocks[] = [
+                        'type' => 'text',
+                        'content' => (string) ($block['content'] ?? ''),
+                        'style' => $this->normalizeLandingBlockStyle($block['style'] ?? [], 'text')
+                    ];
+                } elseif ($type === 'image') {
+                    $blocks[] = [
+                        'type' => 'image',
+                        'src' => (string) ($block['src'] ?? $block['url'] ?? $block['image_url'] ?? ''),
+                        'alt' => (string) ($block['alt'] ?? ''),
+                        'caption' => (string) ($block['caption'] ?? ''),
+                        'style' => $this->normalizeLandingBlockStyle($block['style'] ?? [], 'image')
+                    ];
+                } elseif ($type === 'columns') {
+                    $columns = [];
+                    $rawColumns = isset($block['columns']) && is_array($block['columns']) ? $block['columns'] : [];
+                    $columns[] = $this->normalizeLandingColumnBlock($rawColumns[0] ?? null, 'text');
+                    $columns[] = $this->normalizeLandingColumnBlock($rawColumns[1] ?? null, 'image');
+
+                    $blocks[] = [
+                        'type' => 'columns',
+                        'columns' => $columns,
+                        'style' => $this->normalizeLandingBlockStyle($block['style'] ?? [], 'columns')
+                    ];
+                }
+            }
+
+            $sections[] = [
+                'id' => $sectionId,
+                'heading' => $heading,
+                'blocks' => $blocks
+            ];
+        }
+
+        $page['sections'] = $sections;
+        return $page;
+    }
+
+    private function normalizeCanvasPageContent(array $page) {
+        $header = isset($page['header']) && is_array($page['header'])
+            ? $page['header']
+            : ['logo' => 'public/img/logoHEYP.png'];
+
+        $canvas = isset($page['canvas']) && is_array($page['canvas']) ? $page['canvas'] : [];
+        $elements = [];
+
+        foreach (($page['elements'] ?? []) as $index => $element) {
+            if (!is_array($element)) {
+                continue;
+            }
+
+            $elements[] = $this->normalizeCanvasElement($element, $index + 1);
+        }
+
+        if (empty($elements)) {
+            foreach ($this->defaultLandingPageContent()['elements'] as $index => $element) {
+                $elements[] = $this->normalizeCanvasElement($element, $index + 1);
+            }
+        }
+
+        usort($elements, function($a, $b) {
+            return $a['zIndex'] <=> $b['zIndex'];
+        });
+
+        foreach ($elements as $index => &$element) {
+            $element['zIndex'] = $index + 1;
+        }
+        unset($element);
+
+        $canvasWidth = $this->normalizeLandingNumber($canvas['width'] ?? 1200, 320, 2400, 1200);
+        $canvasHeight = $this->normalizeLandingNumber($canvas['height'] ?? 760, 320, 10000, 760);
+        foreach ($elements as $element) {
+            $canvasHeight = max($canvasHeight, (int) $element['y'] + (int) $element['height'] + 180);
+        }
+        $canvasHeight = $this->normalizeLandingNumber($canvasHeight, 320, 10000, 760);
+
+        return [
+            'header' => $header,
+            'layoutType' => 'canvas',
+            'canvas' => [
+                'width' => $canvasWidth,
+                'height' => $canvasHeight,
+                'backgroundColor' => $this->normalizeCanvasColor($canvas['backgroundColor'] ?? '#ffffff', '#ffffff')
+            ],
+            'elements' => $elements
         ];
-        
-        // Log dữ liệu dashboard
-        error_log("Dữ liệu dashboard: " . json_encode($data));
-        
-        $this->view('admin/dashboard', $data);
+    }
+
+    private function normalizeCanvasElement(array $element, $fallbackIndex) {
+        $type = $this->normalizeLandingChoice($element['type'] ?? 'text', ['text', 'image', 'video', 'shape'], 'text');
+        $defaultWidth = $type === 'text' ? 320 : ($type === 'video' ? 480 : 240);
+        $defaultHeight = $type === 'text' ? 100 : ($type === 'video' ? 270 : 180);
+
+        return [
+            'id' => $this->normalizeCanvasElementId($element['id'] ?? '', $fallbackIndex),
+            'type' => $type,
+            'x' => $this->normalizeLandingNumber($element['x'] ?? 120, 0, 10000, 120),
+            'y' => $this->normalizeLandingNumber($element['y'] ?? 120, 0, 10000, 120),
+            'width' => $this->normalizeLandingNumber($element['width'] ?? $defaultWidth, 20, 2400, $defaultWidth),
+            'height' => $this->normalizeLandingNumber($element['height'] ?? $defaultHeight, 20, 3200, $defaultHeight),
+            'zIndex' => $this->normalizeLandingNumber($element['zIndex'] ?? $fallbackIndex, 1, 9999, $fallbackIndex),
+            'content' => (string) ($element['content'] ?? ''),
+            'src' => (string) ($element['src'] ?? $element['image_url'] ?? $element['url'] ?? ''),
+            'style' => $this->normalizeCanvasElementStyle($element['style'] ?? [], $type)
+        ];
+    }
+
+    private function normalizeCanvasElementStyle($style, $type) {
+        $style = is_array($style) ? $style : [];
+        $defaultBackground = $type === 'shape' ? '#d9f99d' : ($type === 'video' ? '#111827' : 'transparent');
+
+        return [
+            'fontFamily' => $this->normalizeLandingChoice(
+                $style['fontFamily'] ?? 'Open Sans',
+                ['Open Sans', 'Montserrat', 'Georgia', 'Arial', 'Times New Roman'],
+                'Open Sans'
+            ),
+            'fontSize' => $this->normalizeLandingNumber($style['fontSize'] ?? ($type === 'text' ? 24 : 18), 8, 160, $type === 'text' ? 24 : 18),
+            'fontWeight' => $this->normalizeLandingChoice((string) ($style['fontWeight'] ?? '400'), ['400', '500', '600', '700'], '400'),
+            'color' => $this->normalizeCanvasColor($style['color'] ?? '#1f2937', '#1f2937'),
+            'backgroundColor' => $this->normalizeCanvasColor($style['backgroundColor'] ?? $defaultBackground, $defaultBackground),
+            'borderRadius' => $this->normalizeLandingNumber($style['borderRadius'] ?? (($type === 'image' || $type === 'video') ? 8 : 0), 0, 240, ($type === 'image' || $type === 'video') ? 8 : 0)
+        ];
+    }
+
+    private function normalizeCanvasElementId($id, $fallbackIndex) {
+        $id = preg_replace('/[^a-zA-Z0-9_-]+/', '-', trim((string) $id));
+        $id = trim($id, '-');
+
+        return $id !== '' ? $id : 'el-' . $fallbackIndex . '-' . uniqid();
+    }
+
+    private function normalizeCanvasColor($value, $fallback) {
+        $value = trim((string) $value);
+
+        if ($value === 'transparent') {
+            return 'transparent';
+        }
+
+        return $this->normalizeLandingColor($value, $fallback);
+    }
+
+    private function normalizeLandingColumnBlock($block, $fallbackType) {
+        if (!is_array($block) || ($block['type'] ?? '') === 'columns') {
+            return $this->defaultLandingColumnBlock($fallbackType);
+        }
+
+        $type = $block['type'] ?? '';
+        if ($type === 'heading') {
+            $level = isset($block['level']) ? (int) $block['level'] : 2;
+
+            return [
+                'type' => 'heading',
+                'level' => in_array($level, [1, 2, 3], true) ? $level : 2,
+                'content' => (string) ($block['content'] ?? $block['text'] ?? ''),
+                'style' => $this->normalizeLandingBlockStyle($block['style'] ?? ['width' => 100], 'heading')
+            ];
+        }
+
+        if ($type === 'image') {
+            return [
+                'type' => 'image',
+                'src' => (string) ($block['src'] ?? $block['url'] ?? $block['image_url'] ?? ''),
+                'alt' => (string) ($block['alt'] ?? ''),
+                'caption' => (string) ($block['caption'] ?? ''),
+                'style' => $this->normalizeLandingBlockStyle($block['style'] ?? ['width' => 100], 'image')
+            ];
+        }
+
+        return [
+            'type' => 'text',
+            'content' => (string) ($block['content'] ?? ''),
+            'style' => $this->normalizeLandingBlockStyle($block['style'] ?? ['width' => 100], 'text')
+        ];
+    }
+
+    private function defaultLandingColumnBlock($type) {
+        if ($type === 'image') {
+            return [
+                'type' => 'image',
+                'src' => '',
+                'alt' => '',
+                'caption' => '',
+                'style' => $this->normalizeLandingBlockStyle(['width' => 100], 'image')
+            ];
+        }
+
+        return [
+            'type' => 'text',
+            'content' => '',
+            'style' => $this->normalizeLandingBlockStyle(['width' => 100], 'text')
+        ];
+    }
+
+    private function normalizeLandingBlockStyle($style, $type) {
+        $style = is_array($style) ? $style : [];
+
+        $normalized = [
+            'align' => $this->normalizeLandingChoice($style['align'] ?? 'left', ['left', 'center', 'right'], 'left'),
+            'width' => $this->normalizeLandingNumber($style['width'] ?? 100, 10, 100, 100),
+            'marginTop' => $this->normalizeLandingNumber($style['marginTop'] ?? 0, 0, 160, 0),
+            'marginBottom' => $this->normalizeLandingNumber($style['marginBottom'] ?? 16, 0, 160, 16),
+            'backgroundColor' => $this->normalizeLandingColor($style['backgroundColor'] ?? '')
+        ];
+
+        if ($type === 'heading' || $type === 'text') {
+            $normalized['fontFamily'] = $this->normalizeLandingChoice(
+                $style['fontFamily'] ?? 'Open Sans',
+                ['Open Sans', 'Montserrat', 'Georgia', 'Arial', 'Times New Roman'],
+                'Open Sans'
+            );
+            $normalized['fontSize'] = $this->normalizeLandingNumber($style['fontSize'] ?? ($type === 'heading' ? 40 : 18), 10, 96, $type === 'heading' ? 40 : 18);
+            $normalized['fontWeight'] = $this->normalizeLandingChoice((string) ($style['fontWeight'] ?? '400'), ['400', '500', '600', '700'], '400');
+            $normalized['fontStyle'] = $this->normalizeLandingChoice($style['fontStyle'] ?? 'normal', ['normal', 'italic'], 'normal');
+            $normalized['color'] = $this->normalizeLandingColor($style['color'] ?? '#243528', '#243528');
+            $normalized['textAlign'] = $this->normalizeLandingChoice($style['textAlign'] ?? $normalized['align'], ['left', 'center', 'right'], $normalized['align']);
+        }
+
+        if ($type === 'image') {
+            $normalized['borderRadius'] = $this->normalizeLandingNumber($style['borderRadius'] ?? 8, 0, 40, 8);
+        }
+
+        if ($type === 'columns') {
+            $normalized['columnGap'] = $this->normalizeLandingNumber($style['columnGap'] ?? 24, 0, 80, 24);
+            $normalized['firstColumnWidth'] = $this->normalizeLandingNumber($style['firstColumnWidth'] ?? 50, 20, 80, 50);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeLandingChoice($value, array $allowed, $fallback) {
+        $value = (string) $value;
+        return in_array($value, $allowed, true) ? $value : $fallback;
+    }
+
+    private function normalizeLandingNumber($value, $min, $max, $fallback) {
+        if (!is_numeric($value)) {
+            return $fallback;
+        }
+
+        $value = (int) $value;
+        return max($min, min($max, $value));
+    }
+
+    private function normalizeLandingColor($value, $fallback = '') {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return $fallback;
+        }
+
+        return preg_match('/^#[0-9a-fA-F]{6}$/', $value) ? $value : $fallback;
+    }
+
+    private function normalizeLandingAnchorId($value, $fallback) {
+        $id = strtolower(trim((string) $value));
+        $id = preg_replace('/[^a-z0-9_-]+/', '-', $id);
+        $id = trim($id, '-');
+
+        return $id !== '' ? $id : $fallback;
     }
     
     // Category management
