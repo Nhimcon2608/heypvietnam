@@ -3,6 +3,7 @@
 
 <?php
 $landingNavItems = isset($data['landingNavItems']) && is_array($data['landingNavItems']) ? $data['landingNavItems'] : [];
+$isLandingPageHeader = isset($data['landingNavItems']) || (isset($data['page']) && is_array($data['page']));
 $headerEscape = function($value) {
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 };
@@ -20,7 +21,7 @@ $headerEscape = function($value) {
         </div>
         <nav class="main-nav">
             <ul>
-                <?php if (!empty($landingNavItems)): ?>
+                <?php if ($isLandingPageHeader): ?>
                     <li><a href="<?php echo URL_ROOT; ?>/#top" data-scroll-top class="active">Trang Chủ</a></li>
                     <?php foreach ($landingNavItems as $item): ?>
                         <?php

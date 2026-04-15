@@ -177,9 +177,63 @@ class Database {
                     $this->createMinimalAdminsTable();
                 }
             }
+
+            $this->ensureSettingsTableSchema();
         } catch(PDOException $e) {
             // Just log the error but don't stop the application
             error_log("Error ensuring required tables exist: " . $e->getMessage());
+        }
+    }
+
+    // Settings are written through multiple legacy paths, so keep the table shape compatible.
+    private function ensureSettingsTableSchema() {
+        try {
+            $result = $this->dbh->query("SHOW TABLES LIKE 'settings'");
+            if (!$result->fetch(PDO::FETCH_ASSOC)) {
+                $this->dbh->exec("CREATE TABLE IF NOT EXISTS `settings` (
+                    `id` int(11) NOT NULL AUTO_INCREMENT,
+                    `key` varchar(255) NOT NULL,
+                    `value` text DEFAULT NULL,
+                    `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    UNIQUE KEY `settings_key_unique` (`key`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
+                return;
+            }
+
+            $idColumn = $this->dbh->query("SHOW COLUMNS FROM `settings` LIKE 'id'")->fetch(PDO::FETCH_ASSOC);
+            if (!$idColumn) {
+                $this->dbh->exec("ALTER TABLE `settings` ADD COLUMN `id` int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY FIRST");
+            } else {
+                $idIndex = $this->dbh->query("SHOW INDEX FROM `settings` WHERE Column_name = 'id'")->fetch(PDO::FETCH_ASSOC);
+                $primaryIndex = $this->dbh->query("SHOW INDEX FROM `settings` WHERE Key_name = 'PRIMARY'")->fetch(PDO::FETCH_ASSOC);
+
+                if (!$idIndex && !$primaryIndex) {
+                    $this->dbh->exec("ALTER TABLE `settings` ADD PRIMARY KEY (`id`)");
+                    $idIndex = true;
+                } elseif (!$idIndex) {
+                    $this->dbh->exec("ALTER TABLE `settings` ADD KEY `settings_id_index` (`id`)");
+                    $idIndex = true;
+                }
+
+                if ($idIndex && stripos($idColumn['Extra'] ?? '', 'auto_increment') === false) {
+                    $this->dbh->exec("ALTER TABLE `settings` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT");
+                }
+            }
+
+            $uniqueKey = $this->dbh->query("SHOW INDEX FROM `settings` WHERE Column_name = 'key' AND Non_unique = 0")->fetch(PDO::FETCH_ASSOC);
+            if (!$uniqueKey) {
+                $duplicateKeys = $this->dbh->query("SELECT COUNT(*) FROM (
+                    SELECT `key` FROM `settings` GROUP BY `key` HAVING COUNT(*) > 1
+                ) duplicate_settings")->fetchColumn();
+
+                if ((int) $duplicateKeys === 0) {
+                    $this->dbh->exec("ALTER TABLE `settings` ADD UNIQUE KEY `settings_key_unique` (`key`)");
+                }
+            }
+        } catch(PDOException $e) {
+            error_log("Error ensuring settings table schema: " . $e->getMessage());
         }
     }
     

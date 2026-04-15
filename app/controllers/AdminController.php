@@ -10,6 +10,7 @@ ini_set('memory_limit', '256M');
 
 // Load config to ensure DEBUG constant is available
 require_once dirname(__FILE__) . '/../../config.php';
+require_once dirname(__FILE__) . '/../helpers/FooterSettings.php';
 
 use App\Core\Controller;
 use App\Models\Product;
@@ -97,11 +98,11 @@ class AdminController extends Controller {
         parent::__construct();
 
         // Tải models
-        $this->category = $this->model('Category');
-        $this->product = $this->model('Product');
-        $this->productImage = $this->model('ProductImage'); // Thêm model ProductImage
-        $this->productVideo = $this->model('ProductVideo'); // Thêm model ProductVideo
-        $this->productCustomField = $this->model('ProductCustomField'); // Thêm model ProductCustomField
+        $this->category = $this->optionalModel('Category');
+        $this->product = $this->optionalModel('Product');
+        $this->productImage = $this->optionalModel('ProductImage'); // Thêm model ProductImage
+        $this->productVideo = $this->optionalModel('ProductVideo'); // Thêm model ProductVideo
+        $this->productCustomField = $this->optionalModel('ProductCustomField'); // Thêm model ProductCustomField
         $this->page = $this->model('Page');
         $this->admin = $this->model('Admin'); // Load Admin model
         
@@ -122,6 +123,15 @@ class AdminController extends Controller {
             redirect('admin/pages');
             exit;
         }
+    }
+
+    private function optionalModel($model) {
+        $modelFile = 'app/models/' . $model . '.php';
+        if (!file_exists($modelFile)) {
+            return null;
+        }
+
+        return $this->model($model);
     }
     
     // Get the current action/method name
@@ -217,8 +227,76 @@ class AdminController extends Controller {
             'page' => $page,
             'page_json' => json_encode($page, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
             'message' => $message,
-            'error' => $error
+            'error' => $error,
+            'canvasDefaults' => [
+                'width' => 1200,
+                'height' => 760,
+                'minHeight' => 320,
+                'maxHeight' => 10000,
+                'bottomPadding' => 8,
+                'backgroundColor' => '#ffffff',
+                'autoFitHeight' => true
+            ]
         ]);
+    }
+
+    public function footer() {
+        $message = '';
+        $error = '';
+        $defaultFooter = heypFooterDefaultCanvasContent();
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $rawJson = $_POST['content_json'] ?? '';
+            $decoded = json_decode($rawJson, true);
+
+            if (!is_array($decoded)) {
+                $error = 'JSON footer không hợp lệ. Vui lòng kiểm tra lại nội dung.';
+            } else {
+                $footer = heypFooterNormalizeCanvasContent($decoded);
+                $json = json_encode($footer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                if ($json === false) {
+                    $error = 'Không thể lưu footer: ' . json_last_error_msg();
+                } elseif ($this->setting->set('footer_content', $json)) {
+                    $message = 'Đã lưu footer.';
+                } else {
+                    $error = 'Có lỗi xảy ra khi lưu footer.';
+                }
+            }
+        }
+
+        $footer = $this->getFooterCanvasContent();
+
+        $this->view('admin/pages/editor', [
+            'title' => 'Footer Canvas Editor',
+            'page' => $footer,
+            'page_json' => json_encode($footer, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
+            'default_elements_json' => json_encode($defaultFooter['elements'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
+            'message' => $message,
+            'error' => $error,
+            'editorTitle' => 'Footer Canvas Editor - HeypVietNam Admin',
+            'editorEyebrow' => 'Footer canvas editor',
+            'editorHeading' => 'Footer editor',
+            'editorNote' => 'Kéo thả, resize, đổi layer và gắn link cho từng thành phần footer.',
+            'formAction' => URL_ROOT . '/admin/footer',
+            'activeEditor' => 'footer',
+            'saveButtonLabel' => 'Save footer',
+            'canvasDefaults' => [
+                'width' => 1200,
+                'height' => 432,
+                'minHeight' => 160,
+                'maxHeight' => 2400,
+                'bottomPadding' => 8,
+                'backgroundColor' => '#6a7260',
+                'autoFitHeight' => true
+            ]
+        ]);
+    }
+
+    private function getFooterCanvasContent() {
+        $raw = $this->setting->get('footer_content');
+        $decoded = json_decode((string) $raw, true);
+
+        return heypFooterNormalizeCanvasContent(is_array($decoded) ? $decoded : []);
     }
 
     private function defaultLandingPageContent() {
@@ -410,9 +488,9 @@ class AdminController extends Controller {
         unset($element);
 
         $canvasWidth = $this->normalizeLandingNumber($canvas['width'] ?? 1200, 320, 2400, 1200);
-        $canvasHeight = $this->normalizeLandingNumber($canvas['height'] ?? 760, 320, 10000, 760);
+        $canvasHeight = 320;
         foreach ($elements as $element) {
-            $canvasHeight = max($canvasHeight, (int) $element['y'] + (int) $element['height'] + 180);
+            $canvasHeight = max($canvasHeight, (int) $element['y'] + (int) $element['height'] + 8);
         }
         $canvasHeight = $this->normalizeLandingNumber($canvasHeight, 320, 10000, 760);
 
@@ -432,8 +510,9 @@ class AdminController extends Controller {
         $type = $this->normalizeLandingChoice($element['type'] ?? 'text', ['text', 'image', 'video', 'shape'], 'text');
         $defaultWidth = $type === 'text' ? 320 : ($type === 'video' ? 480 : 240);
         $defaultHeight = $type === 'text' ? 100 : ($type === 'video' ? 270 : 180);
+        $headingLevel = $this->normalizeLandingNumber($element['headingLevel'] ?? $element['level'] ?? 0, 0, 3, 0);
 
-        return [
+        $normalized = [
             'id' => $this->normalizeCanvasElementId($element['id'] ?? '', $fallbackIndex),
             'type' => $type,
             'x' => $this->normalizeLandingNumber($element['x'] ?? 120, 0, 10000, 120),
@@ -445,6 +524,15 @@ class AdminController extends Controller {
             'src' => (string) ($element['src'] ?? $element['image_url'] ?? $element['url'] ?? ''),
             'style' => $this->normalizeCanvasElementStyle($element['style'] ?? [], $type)
         ];
+
+        if ($type === 'text' && $headingLevel > 0) {
+            $normalized['headingLevel'] = $headingLevel;
+        }
+        if ($type === 'text' && trim((string) ($element['navLabel'] ?? '')) !== '') {
+            $normalized['navLabel'] = trim((string) $element['navLabel']);
+        }
+
+        return $normalized;
     }
 
     private function normalizeCanvasElementStyle($style, $type) {

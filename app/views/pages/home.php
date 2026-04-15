@@ -35,6 +35,7 @@ renderPage($page);
     overflow-wrap: anywhere;
     white-space: pre-wrap;
     line-height: 1.25;
+    scroll-margin-top: 90px;
 }
 
 .landing-canvas-element-image img {

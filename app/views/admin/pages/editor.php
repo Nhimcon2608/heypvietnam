@@ -1,5 +1,21 @@
 <?php
 $pageJson = $data['page_json'] ?? '{}';
+$defaultElementsJson = $data['default_elements_json'] ?? '[]';
+$editorTitle = $data['editorTitle'] ?? 'Canva Canvas Editor - HeypVietNam Admin';
+$editorEyebrow = $data['editorEyebrow'] ?? 'Canvas-based landing page builder';
+$editorHeading = $data['editorHeading'] ?? 'Canva-style editor';
+$editorNote = $data['editorNote'] ?? 'Drag, resize, overlap, and reorder independent elements on a fixed design board.';
+$formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
+$activeEditor = $data['activeEditor'] ?? 'pages';
+$saveButtonLabel = $data['saveButtonLabel'] ?? 'Save canvas';
+$canvasDefaults = $data['canvasDefaults'] ?? [];
+$canvasDefaultWidth = isset($canvasDefaults['width']) ? (int) $canvasDefaults['width'] : 1200;
+$canvasDefaultHeight = isset($canvasDefaults['height']) ? (int) $canvasDefaults['height'] : 760;
+$canvasDefaultMinHeight = isset($canvasDefaults['minHeight']) ? (int) $canvasDefaults['minHeight'] : 760;
+$canvasDefaultMaxHeight = isset($canvasDefaults['maxHeight']) ? (int) $canvasDefaults['maxHeight'] : 10000;
+$canvasDefaultBottomPadding = isset($canvasDefaults['bottomPadding']) ? (int) $canvasDefaults['bottomPadding'] : 180;
+$canvasDefaultBackgroundColor = $canvasDefaults['backgroundColor'] ?? '#ffffff';
+$canvasDefaultAutoFitHeight = !empty($canvasDefaults['autoFitHeight']);
 $message = $data['message'] ?? '';
 $error = $data['error'] ?? '';
 ?>
@@ -8,7 +24,7 @@ $error = $data['error'] ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canva Canvas Editor - HeypVietNam Admin</title>
+    <title><?php echo htmlspecialchars($editorTitle, ENT_QUOTES, 'UTF-8'); ?></title>
     <link rel="icon" type="image/png" href="<?php echo URL_ROOT; ?>/public/img/logoHEYP.png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Open+Sans:wght@400;600&display=swap" rel="stylesheet">
@@ -21,35 +37,28 @@ $error = $data['error'] ?? '';
                 <strong>HeypVietNam</strong>
             </div>
             <nav class="admin-nav">
-                <a href="<?php echo URL_ROOT; ?>/admin/pages" class="active"><i class="fas fa-object-group"></i> Canvas editor</a>
+                <a href="<?php echo URL_ROOT; ?>/admin/pages" class="<?php echo $activeEditor === 'pages' ? 'active' : ''; ?>"><i class="fas fa-object-group"></i> Canvas editor</a>
+                <a href="<?php echo URL_ROOT; ?>/admin/footer" class="<?php echo $activeEditor === 'footer' ? 'active' : ''; ?>"><i class="fas fa-window-restore"></i> Footer</a>
                 <a href="<?php echo URL_ROOT; ?>" target="_blank"><i class="fas fa-house"></i> Xem trang</a>
                 <a href="<?php echo URL_ROOT; ?>/admin/logout"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
             </nav>
         </aside>
 
         <main class="editor-page">
-            <header class="editor-header">
-                <div>
-                    <p class="eyebrow">Canvas-based landing page builder</p>
-                    <h1>Canva-style editor</h1>
-                    <p class="editor-note">Drag, resize, overlap, and reorder independent elements on a fixed design board.</p>
-                </div>
-                <a href="<?php echo URL_ROOT; ?>" target="_blank" class="preview-link">
-                    <i class="fas fa-arrow-up-right-from-square"></i> Xem trang
-                </a>
-            </header>
-
             <?php if ($message !== ''): ?>
-                <div class="alert success"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></div>
+                <div class="alert success toast-alert" data-auto-dismiss="3000" role="status">
+                    <?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?>
+                </div>
             <?php endif; ?>
 
             <?php if ($error !== ''): ?>
                 <div class="alert error"><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
             <?php endif; ?>
 
-            <form id="canvasEditorForm" method="POST" action="<?php echo URL_ROOT; ?>/admin/pages">
+            <form id="canvasEditorForm" method="POST" action="<?php echo htmlspecialchars($formAction, ENT_QUOTES, 'UTF-8'); ?>">
                 <input type="hidden" id="contentJsonInput" name="content_json">
                 <textarea id="pageData" hidden><?php echo htmlspecialchars($pageJson, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                <textarea id="defaultElementsData" hidden><?php echo htmlspecialchars($defaultElementsJson, ENT_QUOTES, 'UTF-8'); ?></textarea>
 
                 <section class="toolbar" aria-label="Canvas toolbar">
                     <button type="button" data-add-element="text"><i class="fas fa-font"></i> Add text</button>
@@ -59,7 +68,7 @@ $error = $data['error'] ?? '';
                     <button type="button" id="bringForward"><i class="fas fa-arrow-up"></i> Bring forward</button>
                     <button type="button" id="sendBackward"><i class="fas fa-arrow-down"></i> Send backward</button>
                     <button type="button" id="deleteElement"><i class="fas fa-trash"></i> Delete</button>
-                    <button type="submit" class="save-button"><i class="fas fa-save"></i> Save canvas</button>
+                    <button type="submit" class="save-button"><i class="fas fa-save"></i> <?php echo htmlspecialchars($saveButtonLabel, ENT_QUOTES, 'UTF-8'); ?></button>
                 </section>
 
                 <div class="workspace">
@@ -78,6 +87,18 @@ $error = $data['error'] ?? '';
                         <div id="inspectorFields" class="inspector-fields" hidden>
                             <label>Type
                                 <input type="text" id="elementType" readonly>
+                            </label>
+                            <label data-heading-control>Heading / header
+                                <select id="elementHeadingLevel" data-field="headingLevel">
+                                    <option value="0">Auto</option>
+                                    <option value="1">H1 - show on header</option>
+                                    <option value="2">H2 - content only</option>
+                                    <option value="3">H3 - content only</option>
+                                </select>
+                                <span id="headerNavHint" class="header-nav-hint"></span>
+                            </label>
+                            <label data-header-label-control>Header text
+                                <input type="text" id="elementNavLabel" data-field="navLabel" placeholder="Leave blank to use text content">
                             </label>
                             <div class="field-grid">
                                 <label>X
@@ -103,6 +124,9 @@ $error = $data['error'] ?? '';
 
                             <label class="text-field" data-content-field="media">Image path / YouTube URL
                                 <input type="text" id="elementSrc" data-field="src" placeholder="public/img/logoHEYP.png or https://www.youtube.com/watch?v=...">
+                            </label>
+                            <label class="text-field">Link URL
+                                <input type="text" id="elementHref" data-field="href" placeholder="/products or https://...">
                             </label>
                             <label class="text-field" data-content-field="image">Upload image
                                 <input type="file" id="elementFile" accept="image/*">
@@ -157,6 +181,7 @@ $error = $data['error'] ?? '';
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const pageData = document.getElementById('pageData');
+        const defaultElementsData = document.getElementById('defaultElementsData');
         const canvasScaler = document.getElementById('canvasScaler');
         const canvas = document.getElementById('designCanvas');
         const canvasScroll = document.querySelector('.canvas-scroll');
@@ -168,6 +193,9 @@ $error = $data['error'] ?? '';
 
         const inspector = {
             type: document.getElementById('elementType'),
+            headingLevel: document.getElementById('elementHeadingLevel'),
+            headerNavHint: document.getElementById('headerNavHint'),
+            navLabel: document.getElementById('elementNavLabel'),
             x: document.getElementById('elementX'),
             y: document.getElementById('elementY'),
             width: document.getElementById('elementWidth'),
@@ -175,6 +203,7 @@ $error = $data['error'] ?? '';
             zIndex: document.getElementById('elementZ'),
             content: document.getElementById('elementContent'),
             src: document.getElementById('elementSrc'),
+            href: document.getElementById('elementHref'),
             file: document.getElementById('elementFile'),
             fontFamily: document.getElementById('elementFontFamily'),
             fontSize: document.getElementById('elementFontSize'),
@@ -184,16 +213,36 @@ $error = $data['error'] ?? '';
             borderRadius: document.getElementById('elementRadius')
         };
 
-        const minCanvasHeight = 760;
-        const maxCanvasHeight = 10000;
-        const canvasBottomPadding = 180;
+        const editorCanvasDefaults = {
+            width: <?php echo $canvasDefaultWidth; ?>,
+            height: <?php echo $canvasDefaultHeight; ?>,
+            minHeight: <?php echo $canvasDefaultMinHeight; ?>,
+            maxHeight: <?php echo $canvasDefaultMaxHeight; ?>,
+            bottomPadding: <?php echo $canvasDefaultBottomPadding; ?>,
+            backgroundColor: <?php echo json_encode($canvasDefaultBackgroundColor); ?>,
+            autoFitHeight: <?php echo $canvasDefaultAutoFitHeight ? 'true' : 'false'; ?>
+        };
+        const minCanvasHeight = editorCanvasDefaults.minHeight;
+        const maxCanvasHeight = editorCanvasDefaults.maxHeight;
+        const canvasBottomPadding = editorCanvasDefaults.bottomPadding;
         let elements = [];
         let page = parsePage(pageData.value);
         let canvasSettings = page.canvas;
         elements = page.elements;
         let selectedId = elements[0] ? elements[0].id : null;
+        let selectedIds = selectedId ? [selectedId] : [];
         let interaction = null;
+        let suppressCanvasClick = false;
         let canvasZoom = 1;
+        let elementClipboard = [];
+        let historyStack = [];
+        let redoStack = [];
+        let historyTimer = null;
+        let isRestoringHistory = false;
+        let lastPointerPosition = null;
+        let autoScrollFrame = null;
+        const autoScrollEdgeSize = 72;
+        const autoScrollMaxSpeed = 28;
 
         function parsePage(json) {
             try {
@@ -234,9 +283,9 @@ $error = $data['error'] ?? '';
             canvasData = canvasData && typeof canvasData === 'object' ? canvasData : {};
 
             return {
-                width: clampNumber(canvasData.width, 320, 2400, 1200),
-                height: clampNumber(canvasData.height, 320, maxCanvasHeight, minCanvasHeight),
-                backgroundColor: normalizeColor(canvasData.backgroundColor, '#ffffff')
+                width: clampNumber(canvasData.width, 320, 2400, editorCanvasDefaults.width),
+                height: clampNumber(canvasData.height, minCanvasHeight, maxCanvasHeight, editorCanvasDefaults.height),
+                backgroundColor: normalizeColor(canvasData.backgroundColor, editorCanvasDefaults.backgroundColor)
             };
         }
 
@@ -253,6 +302,7 @@ $error = $data['error'] ?? '';
                         width: 780,
                         height: 74,
                         zIndex: z++,
+                        headingLevel: clampNumber(section.heading.level, 0, 3, 1),
                         content: section.heading.text,
                         style: {
                             fontFamily: 'Montserrat',
@@ -296,6 +346,11 @@ $error = $data['error'] ?? '';
         }
 
         function defaultElements() {
+            const configuredElements = parseDefaultElements();
+            if (configuredElements.length) {
+                return configuredElements;
+            }
+
             return [
                 newElement('text', {
                     x: 90,
@@ -333,6 +388,20 @@ $error = $data['error'] ?? '';
             ];
         }
 
+        function parseDefaultElements() {
+            try {
+                const parsed = JSON.parse(defaultElementsData.value || '[]');
+                if (!Array.isArray(parsed)) {
+                    return [];
+                }
+
+                return parsed.map(normalizeElement).filter(Boolean);
+            } catch (error) {
+                console.error(error);
+                return [];
+            }
+        }
+
         function normalizeElement(element) {
             if (!element || typeof element !== 'object') {
                 return null;
@@ -350,7 +419,7 @@ $error = $data['error'] ?? '';
                 id: overrides.id || createId(),
                 type: type,
                 x: clampNumber(overrides.x, 0, 2400, 120),
-                y: clampNumber(overrides.y, 0, 3200, 120),
+                y: clampNumber(overrides.y, 0, maxCanvasHeight, 120),
                 width: clampNumber(overrides.width, 20, 2400, defaultWidth),
                 height: clampNumber(overrides.height, 20, 3200, defaultHeight),
                 zIndex: clampNumber(
@@ -359,8 +428,16 @@ $error = $data['error'] ?? '';
                     9999,
                     1
                 ),
+                headingLevel: clampNumber(
+                    overrides.headingLevel !== undefined ? overrides.headingLevel : (overrides.level !== undefined ? overrides.level : 0),
+                    0,
+                    3,
+                    0
+                ),
+                navLabel: String(overrides.navLabel || ''),
                 content: String(overrides.content || (type === 'text' ? 'New text' : (type === 'video' ? 'YouTube video' : ''))),
                 src: String(overrides.src || (type === 'image' ? 'public/img/logoHEYP.png' : '')),
+                href: String(overrides.href || ''),
                 style: normalizeStyle(overrides.style || {}, type)
             };
 
@@ -418,6 +495,50 @@ $error = $data['error'] ?? '';
             return elements.find(element => element.id === selectedId) || null;
         }
 
+        function getSelectedElements() {
+            const selectedSet = new Set(selectedIds);
+            return elements.filter(element => selectedSet.has(element.id));
+        }
+
+        function getOrderedSelectedElements() {
+            return getSelectedElements().sort((a, b) => a.zIndex - b.zIndex);
+        }
+
+        function setSelection(ids, primaryId = null, shouldRender = true) {
+            const seen = new Set();
+            selectedIds = ids.filter(id => {
+                if (seen.has(id) || !elements.some(element => element.id === id)) {
+                    return false;
+                }
+
+                seen.add(id);
+                return true;
+            });
+
+            selectedId = primaryId && selectedIds.includes(primaryId)
+                ? primaryId
+                : (selectedIds[selectedIds.length - 1] || null);
+
+            if (shouldRender) {
+                renderCanvas();
+            }
+        }
+
+        function syncSelectionVisuals() {
+            const selectedSet = new Set(selectedIds);
+            canvas.querySelectorAll('.canvas-element').forEach(node => {
+                const id = node.dataset.id;
+                node.classList.toggle('selected', selectedSet.has(id));
+                node.classList.toggle('primary-selected', id === selectedId);
+            });
+        }
+
+        function setLiveSelection(ids, primaryId = null) {
+            setSelection(ids, primaryId, false);
+            syncSelectionVisuals();
+            syncInspector();
+        }
+
         function renderCanvas() {
             expandCanvasToElements();
             canvas.style.width = canvasSettings.width + 'px';
@@ -445,14 +566,119 @@ $error = $data['error'] ?? '';
             canvas.style.transform = 'scale(' + canvasZoom + ')';
         }
 
+        function getCanvasPoint(event, shouldClamp = true) {
+            const rect = canvas.getBoundingClientRect();
+            const zoom = canvasZoom || 1;
+            const point = {
+                x: (event.clientX - rect.left) / zoom,
+                y: (event.clientY - rect.top) / zoom
+            };
+
+            if (!shouldClamp) {
+                return point;
+            }
+
+            return {
+                x: clampNumber(point.x, 0, canvasSettings.width, 0),
+                y: clampNumber(point.y, 0, canvasSettings.height, 0)
+            };
+        }
+
+        function getVisibleCanvasRect() {
+            const canvasRect = canvas.getBoundingClientRect();
+            const scrollRect = canvasScroll.getBoundingClientRect();
+            const zoom = canvasZoom || 1;
+            const left = Math.max(canvasRect.left, scrollRect.left);
+            const top = Math.max(canvasRect.top, scrollRect.top);
+            const right = Math.min(canvasRect.right, scrollRect.right);
+            const bottom = Math.min(canvasRect.bottom, scrollRect.bottom);
+
+            if (right <= left || bottom <= top) {
+                return {
+                    x: 0,
+                    y: clampNumber(canvasScroll.scrollTop / zoom, 0, canvasSettings.height, 0),
+                    width: canvasSettings.width,
+                    height: Math.min(canvasSettings.height, canvasScroll.clientHeight / zoom)
+                };
+            }
+
+            return {
+                x: clampNumber((left - canvasRect.left) / zoom, 0, canvasSettings.width, 0),
+                y: clampNumber((top - canvasRect.top) / zoom, 0, canvasSettings.height, 0),
+                width: Math.max(0, (right - left) / zoom),
+                height: Math.max(0, (bottom - top) / zoom)
+            };
+        }
+
+        function getVisibleInsertionPoint(element) {
+            const visible = getVisibleCanvasRect();
+            const fallbackX = Math.min(120, Math.max(0, canvasSettings.width - element.width));
+            const fallbackY = Math.min(120, Math.max(0, maxCanvasHeight - element.height));
+            const x = visible.x + Math.max(24, (visible.width - element.width) / 2);
+            const y = visible.y + Math.max(24, (visible.height - element.height) / 2);
+
+            return {
+                x: clampNumber(x, 0, Math.max(0, canvasSettings.width - element.width), fallbackX),
+                y: clampNumber(y, 0, Math.max(0, maxCanvasHeight - element.height), fallbackY)
+            };
+        }
+
+        function normalizeCanvasRect(start, end) {
+            const x = Math.min(start.x, end.x);
+            const y = Math.min(start.y, end.y);
+            const width = Math.abs(end.x - start.x);
+            const height = Math.abs(end.y - start.y);
+
+            return {
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                right: x + width,
+                bottom: y + height
+            };
+        }
+
+        function updateMarqueeBox(activeInteraction, rect) {
+            if (!activeInteraction.box) {
+                return;
+            }
+
+            activeInteraction.box.style.left = rect.x + 'px';
+            activeInteraction.box.style.top = rect.y + 'px';
+            activeInteraction.box.style.width = rect.width + 'px';
+            activeInteraction.box.style.height = rect.height + 'px';
+        }
+
+        function elementIntersectsRect(element, rect) {
+            return element.x < rect.right
+                && element.x + element.width > rect.x
+                && element.y < rect.bottom
+                && element.y + element.height > rect.y;
+        }
+
+        function mergeSelectedIds(baseIds, extraIds) {
+            const merged = [];
+            baseIds.concat(extraIds).forEach(id => {
+                if (!merged.includes(id)) {
+                    merged.push(id);
+                }
+            });
+
+            return merged;
+        }
+
         function expandCanvasToElements() {
             const requiredHeight = elements.reduce((height, element) => {
                 return Math.max(height, element.y + element.height + canvasBottomPadding);
             }, minCanvasHeight);
+            const nextHeight = editorCanvasDefaults.autoFitHeight
+                ? requiredHeight
+                : Math.max(canvasSettings.height, requiredHeight);
 
             canvasSettings.height = clampNumber(
-                Math.max(canvasSettings.height, requiredHeight),
-                320,
+                nextHeight,
+                minCanvasHeight,
                 maxCanvasHeight,
                 minCanvasHeight
             );
@@ -464,9 +690,87 @@ $error = $data['error'] ?? '';
                 return;
             }
 
-            canvasSettings.height = clampNumber(requiredHeight, 320, maxCanvasHeight, canvasSettings.height);
+            canvasSettings.height = clampNumber(requiredHeight, minCanvasHeight, maxCanvasHeight, canvasSettings.height);
             canvas.style.height = canvasSettings.height + 'px';
             updateCanvasZoom();
+        }
+
+        function getSocialIconClass(element) {
+            const id = String(element.id || '').toLowerCase();
+            if (!id.startsWith('footer-social-')) {
+                return '';
+            }
+
+            const text = [id, element.content || '', element.href || ''].join(' ').toLowerCase();
+            if (text.includes('shopee')) {
+                return 'fas fa-shopping-bag';
+            }
+            if (text.includes('facebook')) {
+                return 'fab fa-facebook-f';
+            }
+            if (text.includes('youtube')) {
+                return 'fab fa-youtube';
+            }
+
+            return '';
+        }
+
+        function getElementHeadingLevel(element) {
+            if (!element || typeof element !== 'object') {
+                return 0;
+            }
+
+            return clampNumber(
+                element.headingLevel !== undefined ? element.headingLevel : (element.level !== undefined ? element.level : 0),
+                0,
+                3,
+                0
+            );
+        }
+
+        function normalizeNavLabel(value) {
+            return String(value || '').trim().replace(/\s+/g, ' ');
+        }
+
+        function isHeaderNavElement(element) {
+            if (!element || !['text', 'heading'].includes(element.type)) {
+                return false;
+            }
+
+            const label = normalizeNavLabel(element.navLabel || element.content);
+            if (label === '' || /^https?:\/\//i.test(label)) {
+                return false;
+            }
+
+            const headingLevel = getElementHeadingLevel(element);
+            if (headingLevel === 1) {
+                return true;
+            }
+
+            return headingLevel === 0 && Number(element.style.fontSize || 0) >= 32;
+        }
+
+        function headerNavBadgeText(element) {
+            return getElementHeadingLevel(element) === 1 ? 'Header H1' : 'Header auto';
+        }
+
+        function headerNavStatusText(element) {
+            if (isHeaderNavElement(element)) {
+                return getElementHeadingLevel(element) === 1
+                    ? 'This text is H1 and will show on the header.'
+                    : 'This text will show on the header because Auto uses font size 32px or larger.';
+            }
+
+            if (!['text', 'heading'].includes(element.type)) {
+                return 'Only text elements can become header items.';
+            }
+
+            const headingLevel = getElementHeadingLevel(element);
+            if (headingLevel === 2 || headingLevel === 3) {
+                return 'This heading is content only and will not show on the header.';
+            }
+
+            return 'This text is not shown on the header.';
         }
 
         function renderElement(element) {
@@ -484,7 +788,12 @@ $error = $data['error'] ?? '';
             node.style.color = element.style.color;
             node.style.backgroundColor = element.style.backgroundColor;
             node.style.borderRadius = element.style.borderRadius + 'px';
-            node.classList.toggle('selected', element.id === selectedId);
+            node.classList.toggle('selected', selectedIds.includes(element.id));
+            node.classList.toggle('primary-selected', element.id === selectedId);
+            if (isHeaderNavElement(element)) {
+                node.classList.add('is-header-nav-item');
+                node.dataset.headerNav = headerNavBadgeText(element);
+            }
 
             if (element.type === 'image') {
                 const image = document.createElement('img');
@@ -510,19 +819,30 @@ $error = $data['error'] ?? '';
             } else if (element.type === 'shape') {
                 node.setAttribute('aria-label', 'Shape element');
             } else {
-                node.contentEditable = 'true';
-                node.textContent = element.content;
-                node.addEventListener('input', () => {
-                    element.content = node.textContent;
-                    syncInspector();
-                    syncJsonPreview();
-                });
+                const socialIconClass = getSocialIconClass(element);
+                if (socialIconClass !== '') {
+                    node.classList.add('canvas-element-social');
+                    node.contentEditable = 'false';
+                    node.title = element.content || '';
+                    const icon = document.createElement('i');
+                    icon.className = socialIconClass;
+                    node.appendChild(icon);
+                } else {
+                    node.contentEditable = 'true';
+                    node.textContent = element.content;
+                    node.addEventListener('input', () => {
+                        element.content = node.textContent;
+                        syncInspector();
+                        syncJsonPreview();
+                        scheduleHistory();
+                    });
+                }
             }
 
             node.addEventListener('pointerdown', event => startDrag(event, element.id));
             node.addEventListener('click', event => {
                 event.stopPropagation();
-                selectElement(element.id);
+                selectElement(element.id, event.shiftKey);
             });
 
             if (element.id === selectedId) {
@@ -553,55 +873,277 @@ $error = $data['error'] ?? '';
             });
         }
 
+        function startMarqueeSelection(event) {
+            if (event.target !== canvas || (event.button !== undefined && event.button !== 0)) {
+                return;
+            }
+
+            const origin = getCanvasPoint(event);
+            const box = document.createElement('div');
+            box.className = 'selection-marquee';
+            canvas.appendChild(box);
+
+            interaction = {
+                mode: 'marquee',
+                startX: event.clientX,
+                startY: event.clientY,
+                origin: origin,
+                additive: event.shiftKey,
+                originalSelectedId: selectedId,
+                originalSelectedIds: selectedIds.slice(),
+                box: box,
+                changed: false
+            };
+
+            if (!event.shiftKey && selectedIds.length) {
+                setLiveSelection([], null);
+            }
+
+            canvas.classList.add('is-marquee-selecting');
+            updateMarqueeBox(interaction, normalizeCanvasRect(origin, origin));
+            event.preventDefault();
+        }
+
         function startDrag(event, id) {
             if (event.target.classList.contains('resize-handle')) {
+                return;
+            }
+            if (event.shiftKey) {
                 return;
             }
             if (event.target.isContentEditable && selectedId === id) {
                 return;
             }
 
-            selectElement(id);
+            let selectionChanged = false;
+            if (!selectedIds.includes(id)) {
+                selectElement(id, false, false);
+                syncSelectionVisuals();
+                selectionChanged = true;
+            }
             const element = getSelectedElement();
             if (!element) {
                 return;
             }
 
+            const startPoint = getCanvasPoint(event, false);
+            const dragIds = selectedIds.includes(id) ? selectedIds.slice() : [id];
+            const originalPositions = {};
+            elements.forEach(item => {
+                if (dragIds.includes(item.id)) {
+                    originalPositions[item.id] = {
+                        x: item.x,
+                        y: item.y
+                    };
+                }
+            });
+
             interaction = {
                 mode: 'drag',
                 id: id,
+                ids: dragIds,
                 startX: event.clientX,
                 startY: event.clientY,
+                startCanvasX: startPoint.x,
+                startCanvasY: startPoint.y,
                 originalX: element.x,
-                originalY: element.y
+                originalY: element.y,
+                originalPositions: originalPositions,
+                renderOnStop: selectionChanged,
+                changed: false
             };
             event.preventDefault();
         }
 
         function startResize(event, id, handle) {
-            selectElement(id);
+            selectElement(id, false, false);
             const element = getSelectedElement();
             if (!element) {
                 return;
             }
 
+            const startPoint = getCanvasPoint(event, false);
             interaction = {
                 mode: 'resize',
                 id: id,
                 handle: handle,
                 startX: event.clientX,
                 startY: event.clientY,
+                startCanvasX: startPoint.x,
+                startCanvasY: startPoint.y,
                 originalX: element.x,
                 originalY: element.y,
                 originalWidth: element.width,
-                originalHeight: element.height
+                originalHeight: element.height,
+                changed: false
             };
             event.stopPropagation();
             event.preventDefault();
         }
 
+        function handleMarqueeMove(event) {
+            event.preventDefault();
+            const point = getCanvasPoint(event);
+            const rect = normalizeCanvasRect(interaction.origin, point);
+            updateMarqueeBox(interaction, rect);
+
+            if (
+                Math.abs(event.clientX - interaction.startX) < 4
+                && Math.abs(event.clientY - interaction.startY) < 4
+            ) {
+                return;
+            }
+
+            interaction.changed = true;
+            const hitIds = elements
+                .slice()
+                .sort((a, b) => a.zIndex - b.zIndex)
+                .filter(element => elementIntersectsRect(element, rect))
+                .map(element => element.id);
+            const ids = interaction.additive
+                ? mergeSelectedIds(interaction.originalSelectedIds, hitIds)
+                : hitIds;
+            const primaryId = hitIds.length
+                ? hitIds[hitIds.length - 1]
+                : (interaction.additive ? interaction.originalSelectedId : null);
+
+            setLiveSelection(ids, primaryId);
+        }
+
+        function pointerSnapshot(event) {
+            event.preventDefault();
+
+            return {
+                clientX: event.clientX,
+                clientY: event.clientY,
+                preventDefault: () => {}
+            };
+        }
+
+        function edgeScrollAmount(position, start, end) {
+            if (position < start + autoScrollEdgeSize) {
+                const ratio = (start + autoScrollEdgeSize - position) / autoScrollEdgeSize;
+                return -Math.ceil(Math.min(1, ratio) * autoScrollMaxSpeed);
+            }
+
+            if (position > end - autoScrollEdgeSize) {
+                const ratio = (position - (end - autoScrollEdgeSize)) / autoScrollEdgeSize;
+                return Math.ceil(Math.min(1, ratio) * autoScrollMaxSpeed);
+            }
+
+            return 0;
+        }
+
+        function getAutoScrollDelta(pointer) {
+            const rect = canvasScroll.getBoundingClientRect();
+
+            return {
+                x: edgeScrollAmount(pointer.clientX, rect.left, rect.right),
+                y: edgeScrollAmount(pointer.clientY, rect.top, rect.bottom)
+            };
+        }
+
+        function applyAutoScroll(delta) {
+            let scrolled = false;
+
+            if (delta.x !== 0) {
+                const previousLeft = canvasScroll.scrollLeft;
+                canvasScroll.scrollLeft += delta.x;
+                scrolled = scrolled || canvasScroll.scrollLeft !== previousLeft;
+            }
+
+            if (delta.y !== 0) {
+                const previousTop = canvasScroll.scrollTop;
+                canvasScroll.scrollTop += delta.y;
+                scrolled = scrolled || canvasScroll.scrollTop !== previousTop;
+
+                if (canvasScroll.scrollTop === previousTop) {
+                    const previousWindowY = window.scrollY;
+                    window.scrollBy(0, delta.y);
+                    scrolled = scrolled || window.scrollY !== previousWindowY;
+                }
+            }
+
+            return scrolled;
+        }
+
+        function runAutoScroll() {
+            autoScrollFrame = null;
+
+            if (!interaction || !lastPointerPosition) {
+                return;
+            }
+
+            const delta = getAutoScrollDelta(lastPointerPosition);
+            if (delta.x === 0 && delta.y === 0) {
+                return;
+            }
+
+            applyAutoScroll(delta);
+            updateInteractionFromPointer(lastPointerPosition);
+            startAutoScroll();
+        }
+
+        function startAutoScroll() {
+            if (autoScrollFrame !== null) {
+                return;
+            }
+
+            autoScrollFrame = window.requestAnimationFrame(runAutoScroll);
+        }
+
+        function updateAutoScroll(pointer) {
+            const delta = getAutoScrollDelta(pointer);
+
+            if (delta.x !== 0 || delta.y !== 0) {
+                startAutoScroll();
+                return;
+            }
+
+            stopAutoScroll();
+        }
+
+        function stopAutoScroll() {
+            if (autoScrollFrame === null) {
+                return;
+            }
+
+            window.cancelAnimationFrame(autoScrollFrame);
+            autoScrollFrame = null;
+        }
+
+        function finishMarqueeSelection(activeInteraction) {
+            canvas.classList.remove('is-marquee-selecting');
+            suppressCanvasClick = true;
+
+            if (activeInteraction.box && activeInteraction.box.parentNode) {
+                activeInteraction.box.remove();
+            }
+
+            if (!activeInteraction.changed && !activeInteraction.additive) {
+                setSelection([], null, false);
+            }
+
+            renderCanvas();
+        }
+
         function handlePointerMove(event) {
             if (!interaction) {
+                return;
+            }
+
+            lastPointerPosition = pointerSnapshot(event);
+            updateInteractionFromPointer(lastPointerPosition);
+            updateAutoScroll(lastPointerPosition);
+        }
+
+        function updateInteractionFromPointer(pointer) {
+            if (!interaction) {
+                return;
+            }
+
+            if (interaction.mode === 'marquee') {
+                handleMarqueeMove(pointer);
                 return;
             }
 
@@ -610,21 +1152,32 @@ $error = $data['error'] ?? '';
                 return;
             }
 
-            const dx = (event.clientX - interaction.startX) / canvasZoom;
-            const dy = (event.clientY - interaction.startY) / canvasZoom;
+            const point = getCanvasPoint(pointer, false);
+            const dx = point.x - interaction.startCanvasX;
+            const dy = point.y - interaction.startCanvasY;
 
             if (interaction.mode === 'drag') {
-                element.x = clampNumber(interaction.originalX + dx, 0, canvasSettings.width - element.width, element.x);
-                element.y = clampNumber(interaction.originalY + dy, 0, maxCanvasHeight - element.height, element.y);
-                expandCanvasToElement(element);
+                (interaction.ids || [interaction.id]).forEach(id => {
+                    const item = elements.find(entry => entry.id === id);
+                    const original = interaction.originalPositions && interaction.originalPositions[id];
+                    if (!item || !original) {
+                        return;
+                    }
+
+                    item.x = clampNumber(original.x + dx, 0, canvasSettings.width - item.width, item.x);
+                    item.y = clampNumber(original.y + dy, 0, maxCanvasHeight - item.height, item.y);
+                    expandCanvasToElement(item);
+                    updateElementNode(item);
+                });
             }
 
             if (interaction.mode === 'resize') {
                 resizeElement(element, dx, dy);
                 expandCanvasToElement(element);
+                updateElementNode(element);
             }
 
-            updateElementNode(element);
+            interaction.changed = true;
             syncInspector();
             syncJsonPreview();
         }
@@ -671,52 +1224,91 @@ $error = $data['error'] ?? '';
         }
 
         function stopInteraction() {
+            if (!interaction) {
+                return;
+            }
+
+            stopAutoScroll();
+            lastPointerPosition = null;
+
+            if (interaction.mode === 'marquee') {
+                finishMarqueeSelection(interaction);
+                interaction = null;
+                return;
+            }
+
+            const shouldRenderAfterInteraction = interaction.renderOnStop
+                || (interaction.changed && editorCanvasDefaults.autoFitHeight);
+            if (shouldRenderAfterInteraction) {
+                renderCanvas();
+            }
+            if (interaction.changed) {
+                recordHistory();
+            }
             interaction = null;
         }
 
-        function selectElement(id) {
-            if (selectedId === id) {
+        function selectElement(id, additive = false, shouldRender = true) {
+            if (additive) {
+                if (selectedIds.includes(id)) {
+                    setSelection(selectedIds.filter(selected => selected !== id), selectedId === id ? null : selectedId, shouldRender);
+                    return;
+                }
+
+                setSelection(selectedIds.concat(id), id, shouldRender);
+                return;
+            }
+
+            if (selectedId === id && selectedIds.length === 1) {
                 syncInspector();
                 return;
             }
 
-            selectedId = id;
-            renderCanvas();
+            setSelection([id], id, shouldRender);
         }
 
         function addElement(type) {
             const element = newElement(type, {
-                x: 120,
-                y: 120,
                 zIndex: nextZIndex()
             });
+            const position = getVisibleInsertionPoint(element);
+            element.x = position.x;
+            element.y = position.y;
 
             elements.push(element);
-            selectedId = element.id;
+            expandCanvasToElement(element);
+            setSelection([element.id], element.id, false);
             renderCanvas();
+            recordHistory();
         }
 
         function deleteSelectedElement() {
-            if (!selectedId) {
+            if (!selectedIds.length) {
                 return;
             }
 
-            elements = elements.filter(element => element.id !== selectedId);
-            selectedId = elements[0] ? elements[0].id : null;
+            const selectedSet = new Set(selectedIds);
+            elements = elements.filter(element => !selectedSet.has(element.id));
+            selectedIds = elements[0] ? [elements[0].id] : [];
+            selectedId = selectedIds[0] || null;
             renderCanvas();
+            recordHistory();
         }
 
         function reorderLayer(direction) {
-            const element = getSelectedElement();
-            if (!element) {
+            const selectedElements = getSelectedElements();
+            if (!selectedElements.length) {
                 return;
             }
 
-            element.zIndex = direction === 'forward'
-                ? element.zIndex + 1
-                : Math.max(1, element.zIndex - 1);
+            selectedElements.forEach(element => {
+                element.zIndex = direction === 'forward'
+                    ? element.zIndex + 1
+                    : Math.max(1, element.zIndex - 1);
+            });
             normalizeZIndexes();
             renderCanvas();
+            recordHistory();
         }
 
         function normalizeZIndexes() {
@@ -743,6 +1335,8 @@ $error = $data['error'] ?? '';
                     zIndex: [1, 9999]
                 };
                 element[field] = clampNumber(value, ranges[field][0], ranges[field][1], element[field]);
+            } else if (field === 'headingLevel') {
+                element.headingLevel = clampNumber(value, 0, 3, 0);
             } else {
                 element[field] = String(value || '');
                 if (field === 'src' && element.type === 'image' && toYouTubeEmbedUrl(element[field]) !== '') {
@@ -752,6 +1346,7 @@ $error = $data['error'] ?? '';
             }
 
             renderCanvas();
+            scheduleHistory();
         }
 
         function updateSelectedStyle(field, value) {
@@ -763,16 +1358,22 @@ $error = $data['error'] ?? '';
             element.style[field] = value;
             element.style = normalizeStyle(element.style, element.type);
             renderCanvas();
+            scheduleHistory();
         }
 
         function syncInspector() {
             const element = getSelectedElement();
-            emptyInspector.hidden = !!element;
+            emptyInspector.hidden = !!element && selectedIds.length <= 1;
             inspectorFields.hidden = !element;
 
             if (!element) {
+                emptyInspector.textContent = 'Select an element to edit position, size, content, and style.';
                 return;
             }
+
+            emptyInspector.textContent = selectedIds.length > 1
+                ? selectedIds.length + ' elements selected. Inspector edits the primary element.'
+                : 'Select an element to edit position, size, content, and style.';
 
             inspector.type.value = element.type;
             inspector.x.value = element.x;
@@ -780,8 +1381,12 @@ $error = $data['error'] ?? '';
             inspector.width.value = element.width;
             inspector.height.value = element.height;
             inspector.zIndex.value = element.zIndex;
+            inspector.headingLevel.value = getElementHeadingLevel(element);
+            inspector.headerNavHint.textContent = headerNavStatusText(element);
+            inspector.navLabel.value = element.navLabel || '';
             inspector.content.value = element.content || '';
             inspector.src.value = element.src || '';
+            inspector.href.value = element.href || '';
             inspector.fontFamily.value = element.style.fontFamily;
             inspector.fontSize.value = element.style.fontSize;
             inspector.fontWeight.value = element.style.fontWeight;
@@ -798,6 +1403,12 @@ $error = $data['error'] ?? '';
             document.querySelectorAll('[data-content-field="media"]').forEach(field => {
                 field.hidden = !['image', 'video'].includes(element.type);
             });
+            document.querySelectorAll('[data-heading-control]').forEach(field => {
+                field.hidden = !['text', 'heading'].includes(element.type);
+            });
+            document.querySelectorAll('[data-header-label-control]').forEach(field => {
+                field.hidden = !['text', 'heading'].includes(element.type);
+            });
         }
 
         function buildPage() {
@@ -810,6 +1421,281 @@ $error = $data['error'] ?? '';
                 canvas: canvasSettings,
                 elements: elements
             };
+        }
+
+        function cloneElement(element) {
+            return JSON.parse(JSON.stringify(element));
+        }
+
+        function copySelectedElements() {
+            const selectedElements = getOrderedSelectedElements();
+            if (!selectedElements.length) {
+                return false;
+            }
+
+            elementClipboard = selectedElements.map(cloneElement);
+            return true;
+        }
+
+        function pasteElements() {
+            if (!elementClipboard.length) {
+                return;
+            }
+
+            const newIds = [];
+            let nextLayer = nextZIndex();
+            elementClipboard.forEach(element => {
+                const pasted = cloneElement(element);
+                pasted.id = createId();
+                pasted.x = clampNumber(pasted.x + 24, 0, canvasSettings.width - pasted.width, 120);
+                pasted.y = clampNumber(pasted.y + 24, 0, maxCanvasHeight - pasted.height, 120);
+                pasted.zIndex = nextLayer++;
+                elements.push(pasted);
+                newIds.push(pasted.id);
+                expandCanvasToElement(pasted);
+            });
+
+            setSelection(newIds, newIds[newIds.length - 1] || null, false);
+            renderCanvas();
+            recordHistory();
+        }
+
+        function duplicateSelectedElements() {
+            if (!copySelectedElements()) {
+                return;
+            }
+
+            pasteElements();
+        }
+
+        function selectAllElements() {
+            setSelection(elements.map(element => element.id), elements.length ? elements[elements.length - 1].id : null);
+        }
+
+        function clearSelection() {
+            setSelection([], null);
+        }
+
+        function moveSelectedElements(deltaX, deltaY) {
+            const selectedElements = getSelectedElements();
+            if (!selectedElements.length) {
+                return;
+            }
+
+            selectedElements.forEach(element => {
+                element.x = clampNumber(element.x + deltaX, 0, canvasSettings.width - element.width, element.x);
+                element.y = clampNumber(element.y + deltaY, 0, maxCanvasHeight - element.height, element.y);
+                expandCanvasToElement(element);
+            });
+
+            renderCanvas();
+            recordHistory();
+        }
+
+        function serializeEditorState() {
+            return JSON.stringify({
+                canvas: canvasSettings,
+                elements: elements,
+                selectedIds: selectedIds
+            });
+        }
+
+        function resetHistory() {
+            historyStack = [serializeEditorState()];
+            redoStack = [];
+        }
+
+        function recordHistory() {
+            if (isRestoringHistory) {
+                return;
+            }
+
+            const state = serializeEditorState();
+            if (historyStack[historyStack.length - 1] === state) {
+                return;
+            }
+
+            historyStack.push(state);
+            if (historyStack.length > 100) {
+                historyStack.shift();
+            }
+            redoStack = [];
+        }
+
+        function scheduleHistory() {
+            window.clearTimeout(historyTimer);
+            historyTimer = window.setTimeout(() => {
+                historyTimer = null;
+                recordHistory();
+            }, 350);
+        }
+
+        function flushPendingHistory() {
+            if (!historyTimer) {
+                return;
+            }
+
+            window.clearTimeout(historyTimer);
+            historyTimer = null;
+            recordHistory();
+        }
+
+        function restoreEditorState(state) {
+            isRestoringHistory = true;
+            try {
+                const parsed = JSON.parse(state);
+                canvasSettings = normalizeCanvas(parsed.canvas || {});
+                elements = Array.isArray(parsed.elements)
+                    ? parsed.elements.map(normalizeElement).filter(Boolean)
+                    : [];
+                const restoredIds = Array.isArray(parsed.selectedIds) ? parsed.selectedIds : [];
+                selectedIds = restoredIds.filter(id => elements.some(element => element.id === id));
+                selectedId = selectedIds[selectedIds.length - 1] || null;
+                renderCanvas();
+            } finally {
+                isRestoringHistory = false;
+            }
+        }
+
+        function undo() {
+            flushPendingHistory();
+            if (historyStack.length <= 1) {
+                return;
+            }
+
+            redoStack.push(historyStack.pop());
+            restoreEditorState(historyStack[historyStack.length - 1]);
+        }
+
+        function redo() {
+            flushPendingHistory();
+            if (!redoStack.length) {
+                return;
+            }
+
+            const state = redoStack.pop();
+            historyStack.push(state);
+            restoreEditorState(state);
+        }
+
+        function isInputTarget(target) {
+            return target && (
+                target.matches('input, textarea, select') ||
+                target.closest('input, textarea, select')
+            );
+        }
+
+        function hasEditableTextSelection(target) {
+            if (!target || !target.isContentEditable) {
+                return false;
+            }
+
+            const selection = window.getSelection();
+            return selection && !selection.isCollapsed && target.contains(selection.anchorNode);
+        }
+
+        function shouldIgnoreShortcut(event) {
+            const target = event.target;
+            if (isInputTarget(target)) {
+                return true;
+            }
+
+            return hasEditableTextSelection(target);
+        }
+
+        function handleKeyboardShortcut(event) {
+            if (shouldIgnoreShortcut(event)) {
+                return;
+            }
+
+            const key = event.key.toLowerCase();
+            const usesModifier = event.metaKey || event.ctrlKey;
+            const editingCanvasText = event.target && event.target.isContentEditable;
+
+            if (editingCanvasText && !usesModifier && key !== 'escape') {
+                return;
+            }
+
+            if (usesModifier && key === 'z') {
+                event.preventDefault();
+                if (event.shiftKey) {
+                    redo();
+                } else {
+                    undo();
+                }
+                return;
+            }
+
+            if (usesModifier && key === 'y') {
+                event.preventDefault();
+                redo();
+                return;
+            }
+
+            if (usesModifier && key === 'c') {
+                if (copySelectedElements()) {
+                    event.preventDefault();
+                }
+                return;
+            }
+
+            if (usesModifier && key === 'v') {
+                if (elementClipboard.length) {
+                    event.preventDefault();
+                    pasteElements();
+                }
+                return;
+            }
+
+            if (usesModifier && key === 'd') {
+                event.preventDefault();
+                duplicateSelectedElements();
+                return;
+            }
+
+            if (usesModifier && key === 'a') {
+                event.preventDefault();
+                selectAllElements();
+                return;
+            }
+
+            if (key === 'delete' || key === 'backspace') {
+                if (editingCanvasText) {
+                    return;
+                }
+
+                if (selectedIds.length) {
+                    event.preventDefault();
+                    deleteSelectedElement();
+                }
+                return;
+            }
+
+            if (key === 'escape') {
+                if (selectedIds.length) {
+                    event.preventDefault();
+                    clearSelection();
+                }
+                return;
+            }
+
+            const arrowMoves = {
+                arrowleft: [-1, 0],
+                arrowright: [1, 0],
+                arrowup: [0, -1],
+                arrowdown: [0, 1]
+            };
+
+            if (arrowMoves[key]) {
+                if (editingCanvasText) {
+                    return;
+                }
+
+                const [deltaX, deltaY] = arrowMoves[key];
+                const multiplier = event.shiftKey ? 10 : 1;
+                event.preventDefault();
+                moveSelectedElements(deltaX * multiplier, deltaY * multiplier);
+            }
         }
 
         function syncJsonPreview() {
@@ -913,19 +1799,38 @@ $error = $data['error'] ?? '';
             reader.addEventListener('load', () => {
                 element.src = reader.result;
                 renderCanvas();
+                recordHistory();
             });
             reader.readAsDataURL(file);
         });
-        canvas.addEventListener('click', () => {
-            selectedId = null;
-            renderCanvas();
+        canvas.addEventListener('pointerdown', startMarqueeSelection);
+        canvas.addEventListener('click', event => {
+            if (suppressCanvasClick) {
+                suppressCanvasClick = false;
+                return;
+            }
+
+            if (event.target !== canvas || event.shiftKey) {
+                return;
+            }
+
+            clearSelection();
         });
         window.addEventListener('pointermove', handlePointerMove);
         window.addEventListener('pointerup', stopInteraction);
         window.addEventListener('resize', updateCanvasZoom);
+        window.addEventListener('keydown', handleKeyboardShortcut);
         form.addEventListener('submit', syncJsonPreview);
+        document.querySelectorAll('[data-auto-dismiss]').forEach(alert => {
+            const delay = clampNumber(alert.dataset.autoDismiss, 500, 10000, 3000);
+            window.setTimeout(() => {
+                alert.classList.add('is-hiding');
+                window.setTimeout(() => alert.remove(), 260);
+            }, delay);
+        });
 
         renderCanvas();
+        resetHistory();
     });
     </script>
 
@@ -1045,9 +1950,15 @@ $error = $data['error'] ?? '';
 
     .eyebrow,
     .editor-note,
-    .muted {
+    .muted,
+    .shortcut-hints {
         margin: 0 0 8px;
         color: var(--muted);
+    }
+
+    .shortcut-hints {
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 
     #canvasEditorForm {
@@ -1095,6 +2006,24 @@ $error = $data['error'] ?? '';
         background: var(--green-soft);
     }
 
+    .toast-alert {
+        position: fixed;
+        top: 18px;
+        right: 18px;
+        z-index: 30000;
+        max-width: 320px;
+        min-width: 220px;
+        padding: 10px 14px;
+        box-shadow: 0 10px 28px rgba(31, 41, 55, 0.18);
+        transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+
+    .toast-alert.is-hiding {
+        opacity: 0;
+        transform: translateY(-8px);
+        pointer-events: none;
+    }
+
     .alert.error {
         color: var(--danger);
         background: #fff0ee;
@@ -1139,6 +2068,24 @@ $error = $data['error'] ?? '';
         transform-origin: top left;
     }
 
+    .canvas.is-marquee-selecting {
+        cursor: crosshair;
+    }
+
+    .selection-marquee {
+        position: absolute;
+        border: 1px solid #2563eb;
+        background: rgba(37, 99, 235, 0.12);
+        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
+        pointer-events: none;
+        z-index: 20000;
+    }
+
+    .canvas.is-marquee-selecting .move-handle,
+    .canvas.is-marquee-selecting .resize-handle {
+        display: none;
+    }
+
     .canvas-element {
         position: absolute;
         border: 1px solid transparent;
@@ -1155,12 +2102,55 @@ $error = $data['error'] ?? '';
         overflow: visible;
     }
 
+    .canvas-element.selected:not(.primary-selected) {
+        border-color: #14b8a6;
+        box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18);
+    }
+
+    .canvas-element.is-header-nav-item {
+        outline: 2px solid rgba(45, 90, 39, 0.55);
+        outline-offset: 2px;
+    }
+
+    .canvas-element.is-header-nav-item::after {
+        content: attr(data-header-nav);
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        padding: 3px 7px;
+        border-radius: 6px;
+        background: #2d5a27;
+        color: #ffffff;
+        font-family: Montserrat, Arial, sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.2;
+        pointer-events: none;
+        white-space: nowrap;
+        z-index: 10002;
+    }
+
     .canvas-element-text {
         padding: 8px;
         line-height: 1.25;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         user-select: text;
+    }
+
+    .canvas-element-social {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        text-align: center;
+        user-select: none;
+    }
+
+    .canvas-element-social i {
+        font-size: 1.2em;
+        line-height: 1;
+        pointer-events: none;
     }
 
     .canvas-element-image img {
@@ -1256,6 +2246,10 @@ $error = $data['error'] ?? '';
         border: 1px solid var(--border);
         border-radius: 8px;
         padding: 18px;
+        position: sticky;
+        top: 18px;
+        max-height: calc(100vh - 36px);
+        overflow-y: auto;
     }
 
     .inspector-fields {
@@ -1294,6 +2288,12 @@ $error = $data['error'] ?? '';
         resize: vertical;
     }
 
+    .header-nav-hint {
+        color: #2d5a27;
+        font-size: 0.82rem;
+        line-height: 1.4;
+    }
+
     .json-panel {
         gap: 12px;
         margin-top: 8px;
@@ -1327,6 +2327,12 @@ $error = $data['error'] ?? '';
         .admin-sidebar,
         .inspector {
             width: 100%;
+        }
+
+        .inspector {
+            position: static;
+            max-height: none;
+            overflow-y: visible;
         }
 
         .editor-page {

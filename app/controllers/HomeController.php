@@ -156,6 +156,10 @@ class HomeController extends Controller {
     }
 
     private function extractLandingNavItems(array $page) {
+        if (($page['layoutType'] ?? '') === 'canvas' || isset($page['elements'])) {
+            return $this->extractCanvasLandingNavItems($page);
+        }
+
         $items = [];
 
         foreach ($page['sections'] ?? [] as $section) {
@@ -191,6 +195,97 @@ class HomeController extends Controller {
         }
 
         return $items;
+    }
+
+    private function extractCanvasLandingNavItems(array $page) {
+        $candidates = [];
+
+        foreach (($page['elements'] ?? []) as $index => $element) {
+            if (!is_array($element) || !in_array(($element['type'] ?? ''), ['text', 'heading'], true)) {
+                continue;
+            }
+
+            $customLabel = $this->normalizeNavLabel($element['navLabel'] ?? '');
+            $label = $customLabel !== ''
+                ? $customLabel
+                : $this->normalizeNavLabel($element['content'] ?? '');
+            $anchorId = $this->normalizeCanvasTargetId($element['id'] ?? '');
+            if ($label === '' || $anchorId === '') {
+                continue;
+            }
+
+            $style = isset($element['style']) && is_array($element['style']) ? $element['style'] : [];
+            $fontSize = is_numeric($style['fontSize'] ?? null) ? (int) $style['fontSize'] : 0;
+            $headingLevel = $this->extractCanvasHeadingLevel($element);
+
+            $isExplicitH1 = $headingLevel === 1;
+            $isLargeCanvasHeading = $headingLevel === 0 && $fontSize >= 32 && !preg_match('#^https?://#i', $label);
+            if (!$isExplicitH1 && !$isLargeCanvasHeading) {
+                continue;
+            }
+
+            $candidates[] = [
+                'label' => $label,
+                'anchorId' => $anchorId,
+                'y' => is_numeric($element['y'] ?? null) ? (int) $element['y'] : $index,
+                'x' => is_numeric($element['x'] ?? null) ? (int) $element['x'] : 0,
+                'index' => $index
+            ];
+        }
+
+        usort($candidates, function($a, $b) {
+            if ($a['y'] !== $b['y']) {
+                return $a['y'] <=> $b['y'];
+            }
+
+            if ($a['x'] !== $b['x']) {
+                return $a['x'] <=> $b['x'];
+            }
+
+            return $a['index'] <=> $b['index'];
+        });
+
+        $items = [];
+        $seenAnchors = [];
+        $seenLabels = [];
+        foreach ($candidates as $candidate) {
+            $labelKey = strtolower($candidate['label']);
+            if (isset($seenAnchors[$candidate['anchorId']]) || isset($seenLabels[$labelKey])) {
+                continue;
+            }
+
+            $items[] = [
+                'label' => $candidate['label'],
+                'anchorId' => $candidate['anchorId']
+            ];
+            $seenAnchors[$candidate['anchorId']] = true;
+            $seenLabels[$labelKey] = true;
+        }
+
+        return $items;
+    }
+
+    private function extractCanvasHeadingLevel(array $element) {
+        foreach (['headingLevel', 'level'] as $key) {
+            if (isset($element[$key]) && is_numeric($element[$key])) {
+                return (int) $element[$key];
+            }
+        }
+
+        return 0;
+    }
+
+    private function normalizeNavLabel($value) {
+        $label = trim((string) $value);
+        $label = preg_replace('/\s+/u', ' ', $label);
+
+        return trim($label);
+    }
+
+    private function normalizeCanvasTargetId($value) {
+        $id = trim((string) $value);
+
+        return preg_match('/^[a-zA-Z0-9_-]+$/', $id) ? $id : '';
     }
 
     private function normalizeAnchorId($value, $fallback) {

@@ -53,6 +53,7 @@ set_error_handler("customErrorHandler");
 require_once 'config.php';
 require_once 'app/helpers/helpers.php';
 require_once 'app/helpers/LandingPageRenderer.php';
+require_once 'app/helpers/FooterSettings.php';
 require_once 'app/core/App.php';
 require_once 'app/core/Controller.php';
 require_once 'app/core/Database.php';
@@ -61,13 +62,19 @@ require_once 'app/core/Database.php';
 require_once 'app/helpers/ImageHelper.php';
 
 // Load all models
-require_once 'app/models/Product.php';
-require_once 'app/models/Category.php';
-require_once 'app/models/Admin.php';
-require_once 'app/models/Subscriber.php';
-require_once 'app/models/Setting.php';
-require_once 'app/models/ProductImage.php';
-require_once 'app/models/ProductCustomField.php';
+foreach ([
+    'app/models/Product.php',
+    'app/models/Category.php',
+    'app/models/Admin.php',
+    'app/models/Subscriber.php',
+    'app/models/Setting.php',
+    'app/models/ProductImage.php',
+    'app/models/ProductCustomField.php'
+] as $modelFile) {
+    if (file_exists($modelFile)) {
+        require_once $modelFile;
+    }
+}
 
 try {
     // Initialize the application
