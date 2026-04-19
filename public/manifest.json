@@ -1,0 +1,23 @@
+{
+    "name": "HeypVietNam",
+    "short_name": "HEYPVN",
+    "description": "Sản phẩm thân thiện với môi trường",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#5A6B00",
+    "icons": [
+        {
+            "src": "/public/img/logoHEYP.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/public/img/logoHEYP.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
