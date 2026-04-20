@@ -203,6 +203,9 @@ if (!function_exists('heypFooterCanvasTextElement')) {
                 'fontFamily' => 'Open Sans',
                 'fontSize' => 16,
                 'fontWeight' => '400',
+                'fontStyle' => 'normal',
+                'textAlign' => 'left',
+                'textDecoration' => 'none',
                 'color' => '#ffffff',
                 'backgroundColor' => 'transparent',
                 'borderRadius' => 0
@@ -228,6 +231,9 @@ if (!function_exists('heypFooterCanvasShapeElement')) {
                 'fontFamily' => 'Open Sans',
                 'fontSize' => 16,
                 'fontWeight' => '400',
+                'fontStyle' => 'normal',
+                'textAlign' => 'left',
+                'textDecoration' => 'none',
                 'color' => '#ffffff',
                 'backgroundColor' => $backgroundColor,
                 'borderRadius' => $borderRadius
@@ -489,6 +495,12 @@ if (!function_exists('heypFooterNormalizeCanvasElement')) {
             'style' => heypFooterNormalizeCanvasStyle($element['style'] ?? [], $type)
         ];
 
+        if ($type === 'text' && trim((string) ($element['contentHtml'] ?? '')) !== '') {
+            $normalized['contentHtml'] = function_exists('landingPageSanitizeRichTextHtml')
+                ? landingPageSanitizeRichTextHtml($element['contentHtml'])
+                : strip_tags((string) $element['contentHtml'], '<span><strong><b><em><i><u><br>');
+        }
+
         return heypFooterNormalizeSocialCanvasElement($normalized);
     }
 }
@@ -502,6 +514,9 @@ if (!function_exists('heypFooterNormalizeCanvasStyle')) {
             'fontFamily' => heypFooterCanvasChoice($style['fontFamily'] ?? 'Open Sans', ['Open Sans', 'Montserrat', 'Georgia', 'Arial', 'Times New Roman'], 'Open Sans'),
             'fontSize' => heypFooterCanvasNumber($style['fontSize'] ?? ($type === 'text' ? 16 : 18), 8, 160, $type === 'text' ? 16 : 18),
             'fontWeight' => heypFooterCanvasChoice((string) ($style['fontWeight'] ?? '400'), ['400', '500', '600', '700'], '400'),
+            'fontStyle' => heypFooterCanvasChoice((string) ($style['fontStyle'] ?? 'normal'), ['normal', 'italic'], 'normal'),
+            'textAlign' => heypFooterCanvasChoice((string) ($style['textAlign'] ?? 'left'), ['left', 'center', 'right'], 'left'),
+            'textDecoration' => heypFooterCanvasChoice((string) ($style['textDecoration'] ?? 'none'), ['none', 'underline'], 'none'),
             'color' => heypFooterCanvasColor($style['color'] ?? '#ffffff', '#ffffff'),
             'backgroundColor' => heypFooterCanvasColor($style['backgroundColor'] ?? $defaultBackground, $defaultBackground),
             'borderRadius' => heypFooterCanvasNumber($style['borderRadius'] ?? (($type === 'image' || $type === 'video') ? 8 : 0), 0, 240, ($type === 'image' || $type === 'video') ? 8 : 0)
@@ -645,6 +660,9 @@ if (!function_exists('heypFooterCanvasElementStyleAttribute')) {
             'font-family:' . heypFooterCanvasFontFamily($style['fontFamily'] ?? 'Open Sans'),
             'font-size:' . heypFooterCanvasNumber($style['fontSize'] ?? 16, 8, 160, 16) . 'px',
             'font-weight:' . heypFooterCanvasChoice((string) ($style['fontWeight'] ?? '400'), ['400', '500', '600', '700'], '400'),
+            'font-style:' . heypFooterCanvasChoice((string) ($style['fontStyle'] ?? 'normal'), ['normal', 'italic'], 'normal'),
+            'text-align:' . heypFooterCanvasChoice((string) ($style['textAlign'] ?? 'left'), ['left', 'center', 'right'], 'left'),
+            'text-decoration:' . heypFooterCanvasChoice((string) ($style['textDecoration'] ?? 'none'), ['none', 'underline'], 'none'),
             'color:' . heypFooterCanvasColor($style['color'] ?? '#ffffff', '#ffffff'),
             'background-color:' . heypFooterCanvasColor($style['backgroundColor'] ?? 'transparent', 'transparent'),
             'border-radius:' . heypFooterCanvasNumber($style['borderRadius'] ?? 0, 0, 240, 0) . 'px'
@@ -700,7 +718,16 @@ if (!function_exists('heypFooterRenderCanvasElement')) {
                 [date('Y'), defined('SITE_NAME') ? SITE_NAME : 'HeypVietNam'],
                 (string) ($element['content'] ?? '')
             );
-            echo nl2br(heypFooterEscape($content));
+            $contentHtml = trim((string) ($element['contentHtml'] ?? ''));
+            if ($contentHtml !== '' && function_exists('landingPageSanitizeRichTextHtml')) {
+                echo landingPageSanitizeRichTextHtml(str_replace(
+                    ['{year}', '{site_name}'],
+                    [date('Y'), defined('SITE_NAME') ? SITE_NAME : 'HeypVietNam'],
+                    $contentHtml
+                ));
+            } else {
+                echo heypFooterEscape($content);
+            }
         }
 
         echo '</' . $tag . '>';

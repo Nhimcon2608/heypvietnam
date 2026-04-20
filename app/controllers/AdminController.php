@@ -179,7 +179,7 @@ class AdminController extends Controller {
             if (!is_array($decoded)) {
                 $error = 'JSON không hợp lệ. Vui lòng kiểm tra lại nội dung trang.';
             } else {
-                $decoded = $this->normalizeLandingPageContent($decoded);
+                $decoded = $this->normalizeCanvasPageContent($decoded);
                 $this->page->saveBySlug($slug, $decoded, $title);
                 $message = 'Đã lưu landing page.';
             }
@@ -192,14 +192,32 @@ class AdminController extends Controller {
             $this->page->saveBySlug($slug, $page, $title);
         }
 
-        $page = $this->normalizeLandingPageContent($page);
+        $page = $this->normalizeCanvasPageContent($page);
+        $defaultCanvasPage = $this->normalizeCanvasPageContent($defaultPage);
 
-        $this->view('admin/pages/editor', [
-            'title' => 'Landing Page Builder',
+        $this->view('admin/pages/canvas-editor', [
+            'title' => 'Landing Page Canvas Editor',
             'page' => $page,
             'page_json' => json_encode($page, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
+            'default_elements_json' => json_encode($defaultCanvasPage['elements'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT),
             'message' => $message,
-            'error' => $error
+            'error' => $error,
+            'editorTitle' => 'Landing Page Canvas Editor - HeypVietNam Admin',
+            'editorEyebrow' => 'Landing page canvas editor',
+            'editorHeading' => 'Canvas editor',
+            'editorNote' => 'Kéo thả, resize, đổi layer và chỉnh từng thành phần trên trang chính.',
+            'formAction' => URL_ROOT . '/admin/pages',
+            'activeEditor' => 'pages',
+            'saveButtonLabel' => 'Save landing page',
+            'canvasDefaults' => [
+                'width' => 1200,
+                'height' => 1600,
+                'minHeight' => 760,
+                'maxHeight' => 10000,
+                'bottomPadding' => 180,
+                'backgroundColor' => '#ffffff',
+                'autoFitHeight' => true
+            ]
         ]);
     }
 
@@ -263,52 +281,7 @@ class AdminController extends Controller {
     }
 
     private function defaultLandingPageContent() {
-        return [
-            'header' => [
-                'logo' => 'public/img/logoHEYP.png'
-            ],
-            'sections' => [
-                [
-                    'id' => 'home',
-                    'heading' => [
-                        'level' => 1,
-                        'text' => 'Sản phẩm xanh cho lối sống bền vững',
-                        'anchorId' => 'home'
-                    ],
-                    'blocks' => [
-                        [
-                            'type' => 'text',
-                            'content' => 'HEYP cung cấp các sản phẩm làm sạch trong gia đình từ xà phòng truyền thống, thân thiện môi trường.'
-                        ],
-                        [
-                            'type' => 'image',
-                            'src' => 'public/img/logoHEYP.png',
-                            'alt' => 'Heyp Logo',
-                            'caption' => ''
-                        ]
-                    ]
-                ],
-                [
-                    'id' => 'about-heyp',
-                    'heading' => [
-                        'level' => 1,
-                        'text' => 'Về HEYP',
-                        'anchorId' => 'about-heyp'
-                    ],
-                    'blocks' => [
-                        [
-                            'type' => 'heading',
-                            'level' => 2,
-                            'content' => 'Thương hiệu địa phương tại Daklak'
-                        ],
-                        [
-                            'type' => 'text',
-                            'content' => 'HEYP hướng tới cung cấp các sản phẩm làm sạch, bảo vệ cho gia đình bạn, được làm từ nguyên liệu thiên nhiên, không phụ gia.'
-                        ]
-                    ]
-                ]
-            ]
-        ];
+        return \heypDefaultHomePageContent();
     }
 
     private function normalizeLandingPageContent(array $page) {
@@ -386,6 +359,18 @@ class AdminController extends Controller {
                         'alt' => (string) ($block['alt'] ?? ''),
                         'caption' => (string) ($block['caption'] ?? '')
                     ];
+                } elseif ($type === 'video') {
+                    $src = trim((string) ($block['src'] ?? $block['url'] ?? $block['video_url'] ?? ''));
+                    if ($src === '') {
+                        continue;
+                    }
+
+                    $blocks[] = [
+                        'type' => 'video',
+                        'src' => $src,
+                        'title' => (string) ($block['title'] ?? $block['content'] ?? ''),
+                        'caption' => (string) ($block['caption'] ?? '')
+                    ];
                 }
             }
 
@@ -425,7 +410,7 @@ class AdminController extends Controller {
             }
 
             $type = $element['type'] ?? 'text';
-            if (!in_array($type, ['text', 'heading', 'image'], true)) {
+            if (!in_array($type, ['text', 'heading', 'image', 'video'], true)) {
                 continue;
             }
 
@@ -435,7 +420,8 @@ class AdminController extends Controller {
             $headingLevel = is_numeric($element['headingLevel'] ?? $element['level'] ?? null)
                 ? (int) ($element['headingLevel'] ?? $element['level'])
                 : 0;
-            $isH1 = $type !== 'image' && ($headingLevel === 1 || $fontSize >= 32);
+            $isMedia = in_array($type, ['image', 'video'], true);
+            $isH1 = !$isMedia && $headingLevel === 1;
 
             if ($isH1 && $content !== '') {
                 $sectionId = $this->normalizeLandingAnchorId($element['id'] ?? $content, 'section-' . (count($sections) + 1));
@@ -465,13 +451,14 @@ class AdminController extends Controller {
                 $currentIndex = 0;
             }
 
-            if ($type === 'image') {
+            if ($type === 'image' || $type === 'video') {
                 $src = (string) ($element['src'] ?? $element['image_url'] ?? $element['url'] ?? '');
                 if ($src !== '') {
                     $sections[$currentIndex]['blocks'][] = [
-                        'type' => 'image',
+                        'type' => $type,
                         'src' => $src,
-                        'alt' => $content,
+                        'alt' => $type === 'image' ? $content : '',
+                        'title' => $type === 'video' ? $content : '',
                         'caption' => ''
                     ];
                 }
@@ -513,18 +500,20 @@ class AdminController extends Controller {
         $canvas = isset($page['canvas']) && is_array($page['canvas']) ? $page['canvas'] : [];
         $elements = [];
 
-        foreach (($page['elements'] ?? []) as $index => $element) {
-            if (!is_array($element)) {
-                continue;
-            }
+        if (isset($page['elements']) && is_array($page['elements'])) {
+            foreach ($page['elements'] as $index => $element) {
+                if (!is_array($element)) {
+                    continue;
+                }
 
-            $elements[] = $this->normalizeCanvasElement($element, $index + 1);
+                $elements[] = $this->normalizeCanvasElement($element, $index + 1);
+            }
+        } elseif (isset($page['sections']) && is_array($page['sections'])) {
+            $elements = $this->landingSectionsToCanvasElements($page['sections']);
         }
 
         if (empty($elements)) {
-            foreach ($this->defaultLandingPageContent()['elements'] as $index => $element) {
-                $elements[] = $this->normalizeCanvasElement($element, $index + 1);
-            }
+            $elements = $this->landingSectionsToCanvasElements($this->defaultLandingPageContent()['sections'] ?? []);
         }
 
         usort($elements, function($a, $b) {
@@ -555,6 +544,130 @@ class AdminController extends Controller {
         ];
     }
 
+    private function landingSectionsToCanvasElements(array $sections) {
+        $elements = [];
+        $y = 80;
+        $zIndex = 1;
+
+        foreach ($sections as $section) {
+            if (!is_array($section)) {
+                continue;
+            }
+
+            $heading = isset($section['heading']) && is_array($section['heading']) ? $section['heading'] : [];
+            $headingText = trim((string) ($heading['text'] ?? ''));
+            if ($headingText !== '') {
+                $sectionId = $this->normalizeCanvasElementId($section['id'] ?? $heading['anchorId'] ?? $headingText, $zIndex);
+                $elements[] = $this->normalizeCanvasElement([
+                    'id' => $sectionId,
+                    'type' => 'text',
+                    'x' => 80,
+                    'y' => $y,
+                    'width' => 780,
+                    'height' => 96,
+                    'zIndex' => $zIndex++,
+                    'content' => $headingText,
+                    'headingLevel' => isset($heading['level']) ? (int) $heading['level'] : 1,
+                    'style' => [
+                        'fontFamily' => 'Montserrat',
+                        'fontSize' => 42,
+                        'fontWeight' => '700',
+                        'color' => '#243528',
+                        'backgroundColor' => 'transparent',
+                        'borderRadius' => 0
+                    ]
+                ], $zIndex);
+                $y += 120;
+            }
+
+            foreach (($section['blocks'] ?? []) as $block) {
+                if (!is_array($block)) {
+                    continue;
+                }
+
+                $type = $block['type'] ?? 'text';
+                if ($type === 'image') {
+                    $src = trim((string) ($block['src'] ?? $block['url'] ?? $block['image_url'] ?? ''));
+                    if ($src === '') {
+                        continue;
+                    }
+
+                    $elements[] = $this->normalizeCanvasElement([
+                        'type' => 'image',
+                        'x' => 80,
+                        'y' => $y,
+                        'width' => 520,
+                        'height' => 340,
+                        'zIndex' => $zIndex++,
+                        'src' => $src,
+                        'content' => (string) ($block['alt'] ?? $block['content'] ?? ''),
+                        'style' => [
+                            'backgroundColor' => 'transparent',
+                            'borderRadius' => 8
+                        ]
+                    ], $zIndex);
+                    $y += 380;
+                    continue;
+                }
+
+                if ($type === 'video') {
+                    $src = trim((string) ($block['src'] ?? $block['url'] ?? $block['video_url'] ?? ''));
+                    if ($src === '') {
+                        continue;
+                    }
+
+                    $elements[] = $this->normalizeCanvasElement([
+                        'type' => 'video',
+                        'x' => 80,
+                        'y' => $y,
+                        'width' => 640,
+                        'height' => 360,
+                        'zIndex' => $zIndex++,
+                        'src' => $src,
+                        'content' => (string) ($block['title'] ?? $block['content'] ?? ''),
+                        'style' => [
+                            'backgroundColor' => '#111827',
+                            'borderRadius' => 8
+                        ]
+                    ], $zIndex);
+                    $y += 400;
+                    continue;
+                }
+
+                $content = trim((string) ($block['content'] ?? $block['text'] ?? ''));
+                if ($content === '') {
+                    continue;
+                }
+
+                $level = isset($block['level']) ? (int) $block['level'] : 0;
+                $isHeading = $type === 'heading' && in_array($level, [1, 2, 3], true);
+                $elements[] = $this->normalizeCanvasElement([
+                    'type' => 'text',
+                    'x' => 80,
+                    'y' => $y,
+                    'width' => $isHeading ? 760 : 680,
+                    'height' => $isHeading ? 76 : 120,
+                    'zIndex' => $zIndex++,
+                    'content' => $content,
+                    'headingLevel' => $isHeading ? $level : 0,
+                    'style' => [
+                        'fontFamily' => $isHeading ? 'Montserrat' : 'Open Sans',
+                        'fontSize' => $isHeading ? ($level === 2 ? 32 : 26) : 20,
+                        'fontWeight' => $isHeading ? '700' : '400',
+                        'color' => '#243528',
+                        'backgroundColor' => 'transparent',
+                        'borderRadius' => 0
+                    ]
+                ], $zIndex);
+                $y += $isHeading ? 104 : 150;
+            }
+
+            $y += 40;
+        }
+
+        return $elements;
+    }
+
     private function normalizeCanvasElement(array $element, $fallbackIndex) {
         $type = $this->normalizeLandingChoice($element['type'] ?? 'text', ['text', 'image', 'video', 'shape'], 'text');
         $defaultWidth = $type === 'text' ? 320 : ($type === 'video' ? 480 : 240);
@@ -571,13 +684,17 @@ class AdminController extends Controller {
             'zIndex' => $this->normalizeLandingNumber($element['zIndex'] ?? $fallbackIndex, 1, 9999, $fallbackIndex),
             'content' => (string) ($element['content'] ?? ''),
             'src' => (string) ($element['src'] ?? $element['image_url'] ?? $element['url'] ?? ''),
+            'href' => (string) ($element['href'] ?? ''),
             'style' => $this->normalizeCanvasElementStyle($element['style'] ?? [], $type)
         ];
 
         if ($type === 'text' && $headingLevel > 0) {
             $normalized['headingLevel'] = $headingLevel;
         }
-        if ($type === 'text' && trim((string) ($element['navLabel'] ?? '')) !== '') {
+        if ($type === 'text' && trim((string) ($element['contentHtml'] ?? '')) !== '' && function_exists('landingPageSanitizeRichTextHtml')) {
+            $normalized['contentHtml'] = landingPageSanitizeRichTextHtml($element['contentHtml']);
+        }
+        if ($type === 'text' && $headingLevel === 1 && trim((string) ($element['navLabel'] ?? '')) !== '') {
             $normalized['navLabel'] = trim((string) $element['navLabel']);
         }
 
@@ -596,6 +713,9 @@ class AdminController extends Controller {
             ),
             'fontSize' => $this->normalizeLandingNumber($style['fontSize'] ?? ($type === 'text' ? 24 : 18), 8, 160, $type === 'text' ? 24 : 18),
             'fontWeight' => $this->normalizeLandingChoice((string) ($style['fontWeight'] ?? '400'), ['400', '500', '600', '700'], '400'),
+            'fontStyle' => $this->normalizeLandingChoice((string) ($style['fontStyle'] ?? 'normal'), ['normal', 'italic'], 'normal'),
+            'textAlign' => $this->normalizeLandingChoice((string) ($style['textAlign'] ?? 'left'), ['left', 'center', 'right'], 'left'),
+            'textDecoration' => $this->normalizeLandingChoice((string) ($style['textDecoration'] ?? 'none'), ['none', 'underline'], 'none'),
             'color' => $this->normalizeCanvasColor($style['color'] ?? '#1f2937', '#1f2937'),
             'backgroundColor' => $this->normalizeCanvasColor($style['backgroundColor'] ?? $defaultBackground, $defaultBackground),
             'borderRadius' => $this->normalizeLandingNumber($style['borderRadius'] ?? (($type === 'image' || $type === 'video') ? 8 : 0), 0, 240, ($type === 'image' || $type === 'video') ? 8 : 0)

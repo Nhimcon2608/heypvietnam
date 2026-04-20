@@ -22,9 +22,6 @@ class HomeController extends Controller {
         if (!is_array($page)) {
             $page = $defaultPage;
             $shouldSave = true;
-        } elseif ($this->isLegacyCanvasContent($page)) {
-            $page = $this->convertLegacyCanvasContent($page, $defaultPage);
-            $shouldSave = true;
         }
 
         $normalizedPage = $this->normalizePageContent($page);
@@ -49,103 +46,7 @@ class HomeController extends Controller {
     }
 
     private function defaultHomePageContent() {
-        return [
-            'header' => [
-                'logo' => 'public/img/logoHEYP.png'
-            ],
-            'sections' => [
-                [
-                    'id' => 'home',
-                    'heading' => [
-                        'level' => 1,
-                        'text' => 'Sản Phẩm Xanh Cho Lối Sống Bền Vững',
-                        'anchorId' => 'home'
-                    ],
-                    'blocks' => [
-                        [
-                            'type' => 'heading',
-                            'level' => 2,
-                            'content' => 'Giải pháp làm sạch thân thiện môi trường'
-                        ],
-                        [
-                            'type' => 'text',
-                            'content' => 'HEYP cung cấp các sản phẩm làm sạch trong gia đình từ xà phòng truyền thống, thân thiện môi trường, giúp bạn xây dựng lối sống bền vững, an lành và hạnh phúc.'
-                        ],
-                        [
-                            'type' => 'image',
-                            'src' => 'public/img/logoHEYP.png',
-                            'alt' => 'Heyp Logo'
-                        ]
-                    ]
-                ],
-                [
-                    'id' => 'care-solutions',
-                    'heading' => [
-                        'level' => 1,
-                        'text' => 'Giải Pháp Theo Nhu Cầu',
-                        'anchorId' => 'care-solutions'
-                    ],
-                    'blocks' => [
-                        [
-                            'type' => 'heading',
-                            'level' => 3,
-                            'content' => 'Chăm sóc nhà cửa theo từng nhu cầu'
-                        ],
-                        [
-                            'type' => 'text',
-                            'content' => 'Khám phá các nhóm sản phẩm xanh dành cho chăm sóc cơ thể, nhà bếp, phòng tắm, giặt giũ và chăm sóc nhà cửa.'
-                        ]
-                    ]
-                ],
-                [
-                    'id' => 'heyp-highlights',
-                    'heading' => [
-                        'level' => 1,
-                        'text' => 'Điểm Nổi Bật Của HEYP',
-                        'anchorId' => 'heyp-highlights'
-                    ],
-                    'blocks' => [
-                        [
-                            'type' => 'text',
-                            'content' => 'Những sản phẩm thân thiện môi trường được HEYP chọn lọc cho nhu cầu làm sạch hằng ngày.'
-                        ],
-                        [
-                            'type' => 'image',
-                            'src' => 'public/img/logoHEYP.png',
-                            'alt' => 'Sản phẩm HEYP'
-                        ]
-                    ]
-                ],
-                [
-                    'id' => 'about-heyp',
-                    'heading' => [
-                        'level' => 1,
-                        'text' => 'Về HEYP',
-                        'anchorId' => 'about-heyp'
-                    ],
-                    'blocks' => [
-                        [
-                            'type' => 'heading',
-                            'level' => 2,
-                            'content' => 'Thương hiệu địa phương tại Daklak'
-                        ],
-                        [
-                            'type' => 'text',
-                            'content' => 'HEYP hướng tới cung cấp các sản phẩm làm sạch, bảo vệ cho gia đình bạn, được làm từ nguyên liệu thiên nhiên, không phụ gia.'
-                        ],
-                        [
-                            'type' => 'text',
-                            'content' => 'HEYP tự hào đi theo con đường ủng hộ bảo vệ môi trường bằng cách hạn chế tối đa bao bì nhựa trong đóng gói và vận chuyển.'
-                        ],
-                        [
-                            'type' => 'image',
-                            'src' => 'public/img/logoHEYP.png',
-                            'alt' => 'About Heyp'
-                        ]
-                    ]
-                ]
-            ]
-        ];
+        return \heypDefaultHomePageContent();
     }
 
     private function isLegacyCanvasContent(array $page) {
@@ -182,7 +83,7 @@ class HomeController extends Controller {
             }
 
             $type = $element['type'] ?? 'text';
-            if (!in_array($type, ['text', 'heading', 'image'], true)) {
+            if (!in_array($type, ['text', 'heading', 'image', 'video'], true)) {
                 continue;
             }
 
@@ -193,16 +94,13 @@ class HomeController extends Controller {
                 ? (int) ($element['headingLevel'] ?? $element['level'])
                 : 0;
             $navLabel = trim((string) ($element['navLabel'] ?? ''));
+            $isMedia = in_array($type, ['image', 'video'], true);
 
-            if ($type !== 'image' && $content === '') {
+            if (!$isMedia && $content === '') {
                 continue;
             }
 
-            $isH1 = $type !== 'image' && (
-                $headingLevel === 1 ||
-                $navLabel !== '' ||
-                ($fontSize >= 32 && strlen($content) <= 220)
-            );
+            $isH1 = !$isMedia && $headingLevel === 1;
 
             if ($isH1) {
                 $label = $navLabel !== '' ? $navLabel : $content;
@@ -234,21 +132,22 @@ class HomeController extends Controller {
                 ];
                 $currentSectionIndex = count($sections) - 1;
 
-                if ($type !== 'image') {
+                if (!$isMedia) {
                     continue;
                 }
             }
 
-            if ($type === 'image') {
+            if ($type === 'image' || $type === 'video') {
                 $src = (string) ($element['src'] ?? $element['image_url'] ?? $element['url'] ?? '');
                 if ($src === '') {
                     continue;
                 }
 
                 $sections[$currentSectionIndex]['blocks'][] = [
-                    'type' => 'image',
+                    'type' => $type,
                     'src' => $src,
-                    'alt' => $content
+                    'alt' => $type === 'image' ? $content : '',
+                    'title' => $type === 'video' ? $content : ''
                 ];
                 continue;
             }
@@ -277,6 +176,10 @@ class HomeController extends Controller {
     }
 
     private function normalizePageContent(array $page) {
+        if ($this->isLegacyCanvasContent($page)) {
+            return \landingPageNormalizeCanvasContent($page);
+        }
+
         if (!isset($page['header']) || !is_array($page['header'])) {
             $page['header'] = ['logo' => 'public/img/logoHEYP.png'];
         }
@@ -394,11 +297,78 @@ class HomeController extends Controller {
             return [$normalized];
         }
 
+        if ($type === 'video') {
+            $src = (string) ($block['src'] ?? $block['url'] ?? $block['video_url'] ?? '');
+            if ($src === '') {
+                return [];
+            }
+
+            $normalized = [
+                'type' => 'video',
+                'src' => $src,
+                'title' => (string) ($block['title'] ?? $block['content'] ?? ''),
+                'caption' => (string) ($block['caption'] ?? '')
+            ];
+
+            if (isset($block['style']) && is_array($block['style'])) {
+                $normalized['style'] = $block['style'];
+            }
+
+            return [$normalized];
+        }
+
         return [];
     }
 
     private function extractLandingNavItems(array $page) {
         $items = [];
+
+        if ($this->isLegacyCanvasContent($page)) {
+            $elements = isset($page['elements']) && is_array($page['elements']) ? $page['elements'] : [];
+            usort($elements, function($a, $b) {
+                $aY = is_array($a) && is_numeric($a['y'] ?? null) ? (int) $a['y'] : 0;
+                $bY = is_array($b) && is_numeric($b['y'] ?? null) ? (int) $b['y'] : 0;
+                if ($aY !== $bY) {
+                    return $aY <=> $bY;
+                }
+
+                $aX = is_array($a) && is_numeric($a['x'] ?? null) ? (int) $a['x'] : 0;
+                $bX = is_array($b) && is_numeric($b['x'] ?? null) ? (int) $b['x'] : 0;
+                return $aX <=> $bX;
+            });
+
+            foreach ($elements as $element) {
+                if (!is_array($element)) {
+                    continue;
+                }
+
+                $type = $element['type'] ?? 'text';
+                if (!in_array($type, ['text', 'heading'], true)) {
+                    continue;
+                }
+
+                $content = trim((string) ($element['content'] ?? ''));
+                $navLabel = trim((string) ($element['navLabel'] ?? ''));
+                if ($content === '' && $navLabel === '') {
+                    continue;
+                }
+
+                $headingLevel = is_numeric($element['headingLevel'] ?? $element['level'] ?? null)
+                    ? (int) ($element['headingLevel'] ?? $element['level'])
+                    : 0;
+
+                if ($headingLevel === 1) {
+                    $items[] = [
+                        'label' => $navLabel !== '' ? $navLabel : $content,
+                        'anchorId' => $element['id'] ?? ''
+                    ];
+                }
+            }
+
+            return array_values(array_filter($items, function($item) {
+                return trim((string) ($item['anchorId'] ?? '')) !== '';
+            }));
+        }
 
         foreach ($page['sections'] ?? [] as $section) {
             if (!is_array($section)) {

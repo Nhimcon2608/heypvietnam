@@ -60,6 +60,7 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                     <button type="button" data-add-block="heading" data-level="3"><i class="fas fa-heading"></i> H3</button>
                     <button type="button" data-add-block="text"><i class="fas fa-align-left"></i> Text</button>
                     <button type="button" data-add-block="image"><i class="fas fa-image"></i> Image</button>
+                    <button type="button" data-add-block="video"><i class="fab fa-youtube"></i> YouTube</button>
                 </section>
 
                 <div class="workspace">
@@ -129,10 +130,9 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
 
             sorted.forEach(element => {
                 const content = String(element.content || '').trim();
-                const style = element.style && typeof element.style === 'object' ? element.style : {};
-                const fontSize = Number(style.fontSize || 0);
                 const level = Number(element.headingLevel || element.level || 0);
-                const isH1 = element.type !== 'image' && content && (level === 1 || fontSize >= 32);
+                const isMedia = ['image', 'video'].includes(element.type);
+                const isH1 = !isMedia && content && level === 1;
 
                 if (isH1) {
                     const anchorId = slugify(element.id || content, 'section-' + (sections.length + 1));
@@ -162,7 +162,17 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                     return;
                 }
 
+                if (element.type === 'video') {
+                    const src = String(element.src || element.url || '').trim();
+                    if (src) {
+                        current.blocks.push({ type: 'video', src: src, title: content, caption: '' });
+                    }
+                    return;
+                }
+
                 if (content) {
+                    const style = element.style && typeof element.style === 'object' ? element.style : {};
+                    const fontSize = Number(style.fontSize || 0);
                     const contentLevel = level === 2 || level === 3 ? level : (fontSize >= 28 ? 2 : 0);
                     current.blocks.push(contentLevel
                         ? { type: 'heading', level: contentLevel, content: content }
@@ -235,6 +245,14 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                 });
             }
 
+            if (block.type === 'video') {
+                return newBlock('video', {
+                    src: block.src || block.url || block.video_url || '',
+                    content: block.title || block.content || '',
+                    caption: block.caption || ''
+                });
+            }
+
             return null;
         }
 
@@ -293,7 +311,11 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                 return 'H' + block.level;
             }
 
-            return block.type === 'image' ? 'Image' : 'Text';
+            if (block.type === 'image') {
+                return 'Image';
+            }
+
+            return block.type === 'video' ? 'YouTube' : 'Text';
         }
 
         function render() {
@@ -397,6 +419,24 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                     preview.className = 'image-preview';
                     preview.src = resolvePreviewUrl(block.src);
                     preview.alt = block.alt || '';
+                    body.appendChild(preview);
+                }
+            }
+
+            if (block.type === 'video') {
+                body.appendChild(textInput('YouTube URL', block.src, value => updateBlockField(index, 'src', value), block.id, 'https://www.youtube.com/watch?v=...'));
+                body.appendChild(textInput('Video title', block.content, value => updateBlockField(index, 'content', value), block.id, 'Video title'));
+                body.appendChild(textInput('Caption', block.caption, value => updateBlockField(index, 'caption', value), block.id, 'Optional caption'));
+
+                const embedUrl = toYouTubeEmbedUrl(block.src);
+                if (embedUrl) {
+                    const preview = document.createElement('iframe');
+                    preview.className = 'video-preview';
+                    preview.src = embedUrl;
+                    preview.title = block.content || 'YouTube video';
+                    preview.loading = 'lazy';
+                    preview.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+                    preview.allowFullscreen = true;
                     body.appendChild(preview);
                 }
             }
@@ -583,6 +623,51 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
             return <?php echo json_encode(URL_ROOT); ?> + '/public/img/' + src;
         }
 
+        function toYouTubeEmbedUrl(src) {
+            src = String(src || '').trim();
+            if (!src) {
+                return '';
+            }
+            if (/^(www\.)?(youtube\.com|youtu\.be)\//i.test(src)) {
+                src = 'https://' + src;
+            }
+
+            try {
+                const url = new URL(src, window.location.origin);
+                const hostname = url.hostname.replace(/^www\./, '');
+                let videoId = '';
+
+                if (hostname === 'youtu.be') {
+                    videoId = url.pathname.split('/').filter(Boolean)[0] || '';
+                }
+
+                if (hostname === 'youtube.com' || hostname === 'm.youtube.com' || hostname === 'youtube-nocookie.com') {
+                    if (url.pathname === '/watch') {
+                        videoId = url.searchParams.get('v') || '';
+                    } else {
+                        const parts = url.pathname.split('/').filter(Boolean);
+                        if (['embed', 'shorts', 'live'].includes(parts[0])) {
+                            videoId = parts[1] || '';
+                        }
+                    }
+                }
+
+                if (!/^[a-zA-Z0-9_-]{6,}$/.test(videoId)) {
+                    return '';
+                }
+
+                const embedUrl = new URL('https://www.youtube.com/embed/' + videoId);
+                const start = url.searchParams.get('start') || url.searchParams.get('t');
+                if (start) {
+                    embedUrl.searchParams.set('start', String(start).replace(/\D/g, ''));
+                }
+
+                return embedUrl.toString();
+            } catch (error) {
+                return '';
+            }
+        }
+
         function buildPage() {
             const sections = [];
             const usedAnchors = new Set();
@@ -646,6 +731,16 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                         alt: block.alt,
                         caption: block.caption
                     });
+                    return;
+                }
+
+                if (block.type === 'video' && block.src.trim()) {
+                    currentSection.blocks.push({
+                        type: 'video',
+                        src: block.src,
+                        title: block.content,
+                        caption: block.caption
+                    });
                 }
             });
 
@@ -675,7 +770,9 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
                 const level = Number(this.dataset.level || 2);
                 const defaults = type === 'heading'
                     ? { level: level, content: level === 1 ? 'New section' : 'New heading' }
-                    : (type === 'image' ? { src: 'public/img/logoHEYP.png', alt: 'Image' } : { content: '' });
+                    : (type === 'image'
+                        ? { src: 'public/img/logoHEYP.png', alt: 'Image' }
+                        : (type === 'video' ? { src: 'https://www.youtube.com/watch?v=', content: 'YouTube video' } : { content: '' }));
                 addBlock(type, defaults);
             });
         });
@@ -990,6 +1087,16 @@ $formAction = $data['formAction'] ?? (URL_ROOT . '/admin/pages');
         border-radius: 8px;
         border: 1px solid var(--line);
         background: #ffffff;
+    }
+
+    .video-preview {
+        display: block;
+        width: min(100%, 520px);
+        aspect-ratio: 16 / 9;
+        height: auto;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #111827;
     }
 
     .append-block {

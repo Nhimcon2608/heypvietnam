@@ -49,6 +49,7 @@ set_error_handler("customErrorHandler");
 require_once 'config.php';
 require_once 'app/helpers/helpers.php';
 require_once 'app/helpers/LandingPageRenderer.php';
+require_once 'app/helpers/LandingPageDefaults.php';
 require_once 'app/helpers/FooterSettings.php';
 require_once 'app/core/App.php';
 require_once 'app/core/Controller.php';

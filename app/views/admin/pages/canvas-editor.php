@@ -122,6 +122,13 @@ $error = $data['error'] ?? '';
                                 <textarea id="elementContent" data-field="content" rows="4"></textarea>
                             </label>
 
+                            <div class="inline-style-toolbar" data-content-field="text" aria-label="Inline text style">
+                                <button type="button" id="textBoldButton" data-inline-style="bold" title="Bold (Ctrl/Cmd+B)"><strong>B</strong></button>
+                                <button type="button" id="textItalicButton" data-inline-style="italic" title="Italic (Ctrl/Cmd+I)"><em>I</em></button>
+                                <button type="button" id="textUnderlineButton" data-inline-style="underline" title="Underline (Ctrl/Cmd+U)"><u>U</u></button>
+                                <span>Highlight text first to style only that part.</span>
+                            </div>
+
                             <label class="text-field" data-content-field="media">Image path / YouTube URL
                                 <input type="text" id="elementSrc" data-field="src" placeholder="public/img/logoHEYP.png or https://www.youtube.com/watch?v=...">
                             </label>
@@ -208,6 +215,9 @@ $error = $data['error'] ?? '';
             fontFamily: document.getElementById('elementFontFamily'),
             fontSize: document.getElementById('elementFontSize'),
             fontWeight: document.getElementById('elementFontWeight'),
+            boldButton: document.getElementById('textBoldButton'),
+            italicButton: document.getElementById('textItalicButton'),
+            underlineButton: document.getElementById('textUnderlineButton'),
             color: document.getElementById('elementColor'),
             backgroundColor: document.getElementById('elementBg'),
             borderRadius: document.getElementById('elementRadius')
@@ -239,6 +249,8 @@ $error = $data['error'] ?? '';
         let redoStack = [];
         let historyTimer = null;
         let isRestoringHistory = false;
+        let savedTextRange = null;
+        let savedTextElementId = null;
         let lastPointerPosition = null;
         let autoScrollFrame = null;
         const autoScrollEdgeSize = 72;
@@ -328,6 +340,17 @@ $error = $data['error'] ?? '';
                             content: block.alt || ''
                         }));
                         y += 280;
+                    } else if (block.type === 'video') {
+                        output.push(newElement('video', {
+                            x: 80,
+                            y: y,
+                            width: 640,
+                            height: 360,
+                            zIndex: z++,
+                            src: block.src || block.url || block.video_url || '',
+                            content: block.title || block.content || ''
+                        }));
+                        y += 400;
                     } else {
                         output.push(newElement('text', {
                             x: 80,
@@ -436,6 +459,7 @@ $error = $data['error'] ?? '';
                 ),
                 navLabel: String(overrides.navLabel || ''),
                 content: String(overrides.content || (type === 'text' ? 'New text' : (type === 'video' ? 'YouTube video' : ''))),
+                contentHtml: sanitizeRichTextHtml(overrides.contentHtml || overrides.html || ''),
                 src: String(overrides.src || (type === 'image' ? 'public/img/logoHEYP.png' : '')),
                 href: String(overrides.href || ''),
                 style: normalizeStyle(overrides.style || {}, type)
@@ -451,6 +475,9 @@ $error = $data['error'] ?? '';
                 fontFamily: choice(style.fontFamily, ['Open Sans', 'Montserrat', 'Georgia', 'Arial', 'Times New Roman'], 'Open Sans'),
                 fontSize: clampNumber(style.fontSize, 8, 160, type === 'text' ? 24 : 18),
                 fontWeight: choice(String(style.fontWeight || '400'), ['400', '500', '600', '700'], '400'),
+                fontStyle: choice(String(style.fontStyle || 'normal'), ['normal', 'italic'], 'normal'),
+                textAlign: choice(String(style.textAlign || 'left'), ['left', 'center', 'right'], 'left'),
+                textDecoration: choice(String(style.textDecoration || 'none'), ['none', 'underline'], 'none'),
                 color: normalizeColor(style.color, '#1f2937'),
                 backgroundColor: normalizeColor(style.backgroundColor, type === 'shape' ? '#d9f99d' : (type === 'video' ? '#111827' : 'transparent')),
                 borderRadius: clampNumber(style.borderRadius, 0, 240, (type === 'image' || type === 'video') ? 8 : 0)
@@ -737,28 +764,25 @@ $error = $data['error'] ?? '';
                 return false;
             }
 
-            const label = normalizeNavLabel(element.navLabel || element.content);
-            if (label === '' || /^https?:\/\//i.test(label)) {
+            if (getElementHeadingLevel(element) !== 1) {
                 return false;
             }
 
-            const headingLevel = getElementHeadingLevel(element);
-            if (headingLevel === 1) {
-                return true;
-            }
+            const label = normalizeNavLabel(element.navLabel || element.content);
+            return label !== '' && !/^https?:\/\//i.test(label);
+        }
 
-            return headingLevel === 0 && Number(element.style.fontSize || 0) >= 32;
+        function canEditHeaderNavLabel(element) {
+            return element && ['text', 'heading'].includes(element.type) && getElementHeadingLevel(element) === 1;
         }
 
         function headerNavBadgeText(element) {
-            return getElementHeadingLevel(element) === 1 ? 'Header H1' : 'Header auto';
+            return 'Header H1';
         }
 
         function headerNavStatusText(element) {
             if (isHeaderNavElement(element)) {
-                return getElementHeadingLevel(element) === 1
-                    ? 'This text is H1 and will show on the header.'
-                    : 'This text will show on the header because Auto uses font size 32px or larger.';
+                return 'This text is H1 and will show on the header.';
             }
 
             if (!['text', 'heading'].includes(element.type)) {
@@ -770,7 +794,302 @@ $error = $data['error'] ?? '';
                 return 'This heading is content only and will not show on the header.';
             }
 
-            return 'This text is not shown on the header.';
+            return 'Set Heading / header to H1 to show this text on the header.';
+        }
+
+        function escapeHtml(value) {
+            const div = document.createElement('div');
+            div.textContent = String(value || '');
+            return div.innerHTML;
+        }
+
+        function escapeAttribute(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function normalizeInlineStyleValue(property, value) {
+            value = String(value || '').trim();
+
+            if (property === 'font-family') {
+                const cleanFamily = value.replace(/["']/g, '').split(',')[0].trim();
+                return ['Open Sans', 'Montserrat', 'Georgia', 'Arial', 'Times New Roman'].includes(cleanFamily)
+                    ? cleanFamily
+                    : '';
+            }
+
+            if (property === 'font-size') {
+                const size = clampNumber(String(value).replace('px', ''), 8, 160, 0);
+                return size > 0 ? size + 'px' : '';
+            }
+
+            if (property === 'font-weight') {
+                const weight = value === 'bold' ? '700' : value;
+                return ['400', '500', '600', '700'].includes(weight) ? weight : '';
+            }
+
+            if (property === 'font-style') {
+                return value === 'italic' ? 'italic' : '';
+            }
+
+            if (property === 'text-decoration') {
+                return value.includes('underline') ? 'underline' : '';
+            }
+
+            if (property === 'color' || property === 'background-color') {
+                return normalizeColor(value, '') || '';
+            }
+
+            return '';
+        }
+
+        function sanitizeInlineCss(styleValue) {
+            const output = [];
+            String(styleValue || '').split(';').forEach(rule => {
+                const parts = rule.split(':');
+                if (parts.length < 2) {
+                    return;
+                }
+
+                const property = parts.shift().trim().toLowerCase();
+                const value = normalizeInlineStyleValue(property, parts.join(':'));
+                if (value !== '') {
+                    output.push(property + ': ' + value);
+                }
+            });
+
+            return output.join('; ');
+        }
+
+        function serializeRichNode(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return escapeHtml(node.textContent || '');
+            }
+
+            if (node.nodeType !== Node.ELEMENT_NODE) {
+                return '';
+            }
+
+            const tag = node.tagName.toLowerCase();
+            const children = Array.from(node.childNodes).map(serializeRichNode).join('');
+
+            if (tag === 'br') {
+                return '<br>';
+            }
+
+            if (tag === 'div' || tag === 'p') {
+                return children + '<br>';
+            }
+
+            if (tag === 'strong' || tag === 'b') {
+                return '<strong>' + children + '</strong>';
+            }
+
+            if (tag === 'em' || tag === 'i') {
+                return '<em>' + children + '</em>';
+            }
+
+            if (tag === 'u') {
+                return '<u>' + children + '</u>';
+            }
+
+            if (tag === 'span') {
+                const style = sanitizeInlineCss(node.getAttribute('style') || '');
+                return style !== ''
+                    ? '<span style="' + escapeAttribute(style) + '">' + children + '</span>'
+                    : children;
+            }
+
+            return children;
+        }
+
+        function sanitizeRichTextHtml(html) {
+            const template = document.createElement('template');
+            template.innerHTML = String(html || '');
+            return Array.from(template.content.childNodes).map(serializeRichNode).join('').replace(/(?:<br>){2,}$/g, '<br>');
+        }
+
+        function richTextToPlainText(node) {
+            return String(node.innerText || '')
+                .replace(/\u00a0/g, ' ')
+                .replace(/\n$/g, '');
+        }
+
+        function getCanvasElementNode(id) {
+            return Array.from(canvas.querySelectorAll('.canvas-element')).find(node => node.dataset.id === id) || null;
+        }
+
+        function getTextContentNode(id) {
+            const node = getCanvasElementNode(id);
+            return node ? node.querySelector('.canvas-text-content') : null;
+        }
+
+        function getTextRangeOwner(range) {
+            if (!range) {
+                return null;
+            }
+
+            const container = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+                ? range.commonAncestorContainer
+                : range.commonAncestorContainer.parentElement;
+
+            return container ? container.closest('.canvas-text-content') : null;
+        }
+
+        function saveCurrentTextSelection() {
+            const selection = window.getSelection();
+            if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+                return false;
+            }
+
+            const range = selection.getRangeAt(0);
+            const owner = getTextRangeOwner(range);
+            if (!owner || !canvas.contains(owner)) {
+                return false;
+            }
+
+            const elementNode = owner.closest('.canvas-element');
+            if (!elementNode) {
+                return false;
+            }
+
+            savedTextRange = range.cloneRange();
+            savedTextElementId = elementNode.dataset.id || null;
+            return true;
+        }
+
+        function getUsableTextRange(element, textNode) {
+            const selection = window.getSelection();
+            if (selection && selection.rangeCount > 0 && !selection.isCollapsed) {
+                const activeRange = selection.getRangeAt(0);
+                if (getTextRangeOwner(activeRange) === textNode) {
+                    return activeRange;
+                }
+            }
+
+            if (savedTextRange && savedTextElementId === element.id && getTextRangeOwner(savedTextRange) === textNode) {
+                selection.removeAllRanges();
+                selection.addRange(savedTextRange);
+                return savedTextRange;
+            }
+
+            return null;
+        }
+
+        function syncRichTextElementFromNode(element, textNode) {
+            element.content = richTextToPlainText(textNode);
+            element.contentHtml = sanitizeRichTextHtml(textNode.innerHTML);
+            inspector.content.value = element.content;
+            syncJsonPreview();
+            scheduleHistory();
+        }
+
+        function applyInlineStylesToRange(element, styles) {
+            const textNode = getTextContentNode(element.id);
+            if (!textNode) {
+                return false;
+            }
+
+            const range = getUsableTextRange(element, textNode);
+            if (!range || range.collapsed) {
+                return false;
+            }
+
+            const span = document.createElement('span');
+            Object.entries(styles).forEach(([field, value]) => {
+                if (field === 'fontFamily') {
+                    span.style.fontFamily = fontStack(value);
+                } else if (field === 'fontSize') {
+                    span.style.fontSize = clampNumber(value, 8, 160, element.style.fontSize) + 'px';
+                } else if (field === 'fontWeight') {
+                    span.style.fontWeight = choice(String(value), ['400', '500', '600', '700'], element.style.fontWeight);
+                } else if (field === 'fontStyle') {
+                    span.style.fontStyle = value === 'italic' ? 'italic' : 'normal';
+                } else if (field === 'textDecoration') {
+                    span.style.textDecoration = value === 'underline' ? 'underline' : 'none';
+                } else if (field === 'color') {
+                    span.style.color = normalizeColor(value, element.style.color);
+                }
+            });
+
+            span.appendChild(range.extractContents());
+            range.insertNode(span);
+
+            const nextRange = document.createRange();
+            nextRange.selectNodeContents(span);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(nextRange);
+            saveCurrentTextSelection();
+            syncRichTextElementFromNode(element, textNode);
+            return true;
+        }
+
+        function applyTextStyle(field, value) {
+            const element = getSelectedElement();
+            if (!element || element.type !== 'text') {
+                return false;
+            }
+
+            if (['fontFamily', 'fontSize', 'fontWeight', 'color'].includes(field) && applyInlineStylesToRange(element, { [field]: value })) {
+                return true;
+            }
+
+            element.style[field] = value;
+            element.style = normalizeStyle(element.style, element.type);
+            renderCanvas();
+            scheduleHistory();
+            return true;
+        }
+
+        function rangeStartComputedStyle(element) {
+            const textNode = getTextContentNode(element.id);
+            const range = textNode ? getUsableTextRange(element, textNode) : null;
+            if (!range) {
+                return null;
+            }
+
+            const source = range.startContainer.nodeType === Node.ELEMENT_NODE
+                ? range.startContainer
+                : range.startContainer.parentElement;
+
+            return source ? window.getComputedStyle(source) : null;
+        }
+
+        function toggleTextStyle(command) {
+            const element = getSelectedElement();
+            if (!element || element.type !== 'text') {
+                return;
+            }
+
+            const computed = rangeStartComputedStyle(element);
+            if (command === 'bold') {
+                const currentWeight = computed ? parseInt(computed.fontWeight, 10) : parseInt(element.style.fontWeight, 10);
+                const nextWeight = currentWeight >= 600 ? '400' : '700';
+                if (!applyInlineStylesToRange(element, { fontWeight: nextWeight })) {
+                    applyTextStyle('fontWeight', nextWeight);
+                }
+                return;
+            }
+
+            if (command === 'italic') {
+                const nextStyle = (computed ? computed.fontStyle : element.style.fontStyle) === 'italic' ? 'normal' : 'italic';
+                if (!applyInlineStylesToRange(element, { fontStyle: nextStyle })) {
+                    applyTextStyle('fontStyle', nextStyle);
+                }
+                return;
+            }
+
+            if (command === 'underline') {
+                const currentDecoration = computed ? computed.textDecorationLine : element.style.textDecoration;
+                const nextDecoration = String(currentDecoration || '').includes('underline') ? 'none' : 'underline';
+                if (!applyInlineStylesToRange(element, { textDecoration: nextDecoration })) {
+                    applyTextStyle('textDecoration', nextDecoration);
+                }
+            }
         }
 
         function renderElement(element) {
@@ -785,6 +1104,9 @@ $error = $data['error'] ?? '';
             node.style.fontFamily = fontStack(element.style.fontFamily);
             node.style.fontSize = element.style.fontSize + 'px';
             node.style.fontWeight = element.style.fontWeight;
+            node.style.fontStyle = element.style.fontStyle;
+            node.style.textAlign = element.style.textAlign;
+            node.style.textDecoration = element.style.textDecoration;
             node.style.color = element.style.color;
             node.style.backgroundColor = element.style.backgroundColor;
             node.style.borderRadius = element.style.borderRadius + 'px';
@@ -828,14 +1150,32 @@ $error = $data['error'] ?? '';
                     icon.className = socialIconClass;
                     node.appendChild(icon);
                 } else {
-                    node.contentEditable = 'true';
-                    node.textContent = element.content;
-                    node.addEventListener('input', () => {
-                        element.content = node.textContent;
+                    const textContent = document.createElement('div');
+                    textContent.className = 'canvas-text-content';
+                    textContent.contentEditable = 'true';
+                    textContent.spellcheck = false;
+                    textContent.innerHTML = element.contentHtml !== ''
+                        ? sanitizeRichTextHtml(element.contentHtml)
+                        : escapeHtml(element.content);
+                    textContent.addEventListener('input', () => {
+                        syncRichTextElementFromNode(element, textContent);
                         syncInspector();
-                        syncJsonPreview();
-                        scheduleHistory();
                     });
+                    textContent.addEventListener('keydown', event => {
+                        if (event.key === 'Enter') {
+                            event.preventDefault();
+                            document.execCommand('insertLineBreak');
+                        }
+                    });
+                    textContent.addEventListener('paste', event => {
+                        event.preventDefault();
+                        const text = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+                        document.execCommand('insertText', false, text);
+                    });
+                    ['mouseup', 'keyup', 'focus'].forEach(eventName => {
+                        textContent.addEventListener(eventName, saveCurrentTextSelection);
+                    });
+                    node.appendChild(textContent);
                 }
             }
 
@@ -911,7 +1251,7 @@ $error = $data['error'] ?? '';
             if (event.shiftKey) {
                 return;
             }
-            if (event.target.isContentEditable && selectedId === id) {
+            if (event.target.closest('.canvas-text-content') && selectedId === id) {
                 return;
             }
 
@@ -1337,6 +1677,12 @@ $error = $data['error'] ?? '';
                 element[field] = clampNumber(value, ranges[field][0], ranges[field][1], element[field]);
             } else if (field === 'headingLevel') {
                 element.headingLevel = clampNumber(value, 0, 3, 0);
+                if (element.headingLevel !== 1) {
+                    element.navLabel = '';
+                }
+            } else if (field === 'content') {
+                element.content = String(value || '');
+                element.contentHtml = '';
             } else {
                 element[field] = String(value || '');
                 if (field === 'src' && element.type === 'image' && toYouTubeEmbedUrl(element[field]) !== '') {
@@ -1352,6 +1698,10 @@ $error = $data['error'] ?? '';
         function updateSelectedStyle(field, value) {
             const element = getSelectedElement();
             if (!element) {
+                return;
+            }
+
+            if (element.type === 'text' && applyTextStyle(field, value)) {
                 return;
             }
 
@@ -1390,6 +1740,9 @@ $error = $data['error'] ?? '';
             inspector.fontFamily.value = element.style.fontFamily;
             inspector.fontSize.value = element.style.fontSize;
             inspector.fontWeight.value = element.style.fontWeight;
+            inspector.boldButton.classList.toggle('active', element.style.fontWeight === '700');
+            inspector.italicButton.classList.toggle('active', element.style.fontStyle === 'italic');
+            inspector.underlineButton.classList.toggle('active', element.style.textDecoration === 'underline');
             inspector.color.value = element.style.color === 'transparent' ? '#000000' : element.style.color;
             inspector.backgroundColor.value = element.style.backgroundColor === 'transparent' ? '#ffffff' : element.style.backgroundColor;
             inspector.borderRadius.value = element.style.borderRadius;
@@ -1407,19 +1760,34 @@ $error = $data['error'] ?? '';
                 field.hidden = !['text', 'heading'].includes(element.type);
             });
             document.querySelectorAll('[data-header-label-control]').forEach(field => {
-                field.hidden = !['text', 'heading'].includes(element.type);
+                field.hidden = !canEditHeaderNavLabel(element);
             });
         }
 
         function buildPage() {
             normalizeZIndexes();
             expandCanvasToElements();
+            const normalizedElements = elements.map(element => {
+                const normalized = cloneElement(element);
+                if (!isHeaderNavElement(normalized)) {
+                    normalized.navLabel = '';
+                }
+                if (normalized.type === 'text') {
+                    normalized.contentHtml = sanitizeRichTextHtml(normalized.contentHtml || '');
+                    if (normalized.contentHtml === '') {
+                        delete normalized.contentHtml;
+                    }
+                } else {
+                    delete normalized.contentHtml;
+                }
+                return normalized;
+            });
 
             return {
                 header: page.header || { logo: 'public/img/logoHEYP.png' },
                 layoutType: 'canvas',
                 canvas: canvasSettings,
-                elements: elements
+                elements: normalizedElements
             };
         }
 
@@ -1594,25 +1962,45 @@ $error = $data['error'] ?? '';
             return selection && !selection.isCollapsed && target.contains(selection.anchorNode);
         }
 
-        function shouldIgnoreShortcut(event) {
+        function isCanvasTextEditorTarget(target) {
+            return !!(target && target.closest && target.closest('.canvas-text-content'));
+        }
+
+        function saveEditor() {
+            flushPendingHistory();
+            syncJsonPreview();
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        }
+
+        function shouldIgnoreShortcut(event, key, usesModifier) {
             const target = event.target;
             if (isInputTarget(target)) {
-                return true;
+                return !(usesModifier && key === 's');
             }
 
-            return hasEditableTextSelection(target);
+            return false;
         }
 
         function handleKeyboardShortcut(event) {
-            if (shouldIgnoreShortcut(event)) {
-                return;
-            }
-
             const key = event.key.toLowerCase();
             const usesModifier = event.metaKey || event.ctrlKey;
             const editingCanvasText = event.target && event.target.isContentEditable;
 
+            if (shouldIgnoreShortcut(event, key, usesModifier)) {
+                return;
+            }
+
             if (editingCanvasText && !usesModifier && key !== 'escape') {
+                return;
+            }
+
+            if (usesModifier && key === 's') {
+                event.preventDefault();
+                saveEditor();
                 return;
             }
 
@@ -1632,7 +2020,17 @@ $error = $data['error'] ?? '';
                 return;
             }
 
+            if (usesModifier && ['b', 'i', 'u'].includes(key)) {
+                event.preventDefault();
+                const command = key === 'b' ? 'bold' : (key === 'i' ? 'italic' : 'underline');
+                toggleTextStyle(command);
+                return;
+            }
+
             if (usesModifier && key === 'c') {
+                if (isCanvasTextEditorTarget(event.target) && hasEditableTextSelection(event.target)) {
+                    return;
+                }
                 if (copySelectedElements()) {
                     event.preventDefault();
                 }
@@ -1640,6 +2038,9 @@ $error = $data['error'] ?? '';
             }
 
             if (usesModifier && key === 'v') {
+                if (isCanvasTextEditorTarget(event.target)) {
+                    return;
+                }
                 if (elementClipboard.length) {
                     event.preventDefault();
                     pasteElements();
@@ -1654,6 +2055,9 @@ $error = $data['error'] ?? '';
             }
 
             if (usesModifier && key === 'a') {
+                if (isCanvasTextEditorTarget(event.target)) {
+                    return;
+                }
                 event.preventDefault();
                 selectAllElements();
                 return;
@@ -1781,7 +2185,14 @@ $error = $data['error'] ?? '';
         });
 
         document.querySelectorAll('[data-style-field]').forEach(input => {
+            input.addEventListener('mousedown', saveCurrentTextSelection);
+            input.addEventListener('focus', saveCurrentTextSelection);
             input.addEventListener('input', () => updateSelectedStyle(input.dataset.styleField, input.value));
+        });
+
+        document.querySelectorAll('[data-inline-style]').forEach(button => {
+            button.addEventListener('mousedown', saveCurrentTextSelection);
+            button.addEventListener('click', () => toggleTextStyle(button.dataset.inlineStyle));
         });
 
         document.getElementById('bringForward').addEventListener('click', () => reorderLayer('forward'));
@@ -1820,6 +2231,7 @@ $error = $data['error'] ?? '';
         window.addEventListener('pointerup', stopInteraction);
         window.addEventListener('resize', updateCanvasZoom);
         window.addEventListener('keydown', handleKeyboardShortcut);
+        document.addEventListener('selectionchange', saveCurrentTextSelection);
         form.addEventListener('submit', syncJsonPreview);
         document.querySelectorAll('[data-auto-dismiss]').forEach(alert => {
             const delay = clampNumber(alert.dataset.autoDismiss, 500, 10000, 3000);
@@ -2138,6 +2550,15 @@ $error = $data['error'] ?? '';
         user-select: text;
     }
 
+    .canvas-text-content {
+        width: 100%;
+        height: 100%;
+        outline: none;
+        white-space: inherit;
+        overflow-wrap: inherit;
+        cursor: text;
+    }
+
     .canvas-element-social {
         display: flex;
         align-items: center;
@@ -2282,6 +2703,32 @@ $error = $data['error'] ?? '';
         font: inherit;
         color: var(--text);
         background: #ffffff;
+    }
+
+    .inline-style-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .inline-style-toolbar button {
+        width: 38px;
+        height: 34px;
+        padding: 0;
+        justify-content: center;
+    }
+
+    .inline-style-toolbar button.active {
+        border-color: #2563eb;
+        background: #eff6ff;
+        color: #1d4ed8;
+    }
+
+    .inline-style-toolbar span {
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.4;
     }
 
     textarea {
