@@ -82,33 +82,6 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
     document.head.appendChild(style);
 
-    // Product Quantity Selector
-    const productQuantityInput = document.getElementById('productQuantity');
-    const increaseBtn = document.getElementById('increaseQuantity');
-    const decreaseBtn = document.getElementById('decreaseQuantity');
-    
-    if (productQuantityInput && increaseBtn && decreaseBtn) {
-        increaseBtn.addEventListener('click', function() {
-            const currentValue = parseInt(productQuantityInput.value);
-            productQuantityInput.value = currentValue + 1;
-        });
-        
-        decreaseBtn.addEventListener('click', function() {
-            const currentValue = parseInt(productQuantityInput.value);
-            if (currentValue > 1) {
-                productQuantityInput.value = currentValue - 1;
-            }
-        });
-        
-        // Prevent manual entry of non-numeric values
-        productQuantityInput.addEventListener('input', function() {
-            this.value = this.value.replace(/[^0-9]/g, '');
-            if (this.value === '' || parseInt(this.value) < 1) {
-                this.value = 1;
-            }
-        });
-    }
-
     // Xử lý tất cả các liên kết trong sidebar
     const sidebarLinks = document.querySelectorAll('.sidebar a');
     if (sidebarLinks) {

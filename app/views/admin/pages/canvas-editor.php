@@ -126,7 +126,7 @@ $error = $data['error'] ?? '';
                                 <input type="text" id="elementSrc" data-field="src" placeholder="public/img/logoHEYP.png or https://www.youtube.com/watch?v=...">
                             </label>
                             <label class="text-field">Link URL
-                                <input type="text" id="elementHref" data-field="href" placeholder="/products or https://...">
+                                <input type="text" id="elementHref" data-field="href" placeholder="/contact or https://...">
                             </label>
                             <label class="text-field" data-content-field="image">Upload image
                                 <input type="file" id="elementFile" accept="image/*">

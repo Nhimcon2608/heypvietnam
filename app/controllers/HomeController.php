@@ -79,11 +79,11 @@ class HomeController extends Controller {
                     ]
                 ],
                 [
-                    'id' => 'product-categories',
+                    'id' => 'care-solutions',
                     'heading' => [
                         'level' => 1,
-                        'text' => 'Danh Mục Sản Phẩm',
-                        'anchorId' => 'product-categories'
+                        'text' => 'Giải Pháp Theo Nhu Cầu',
+                        'anchorId' => 'care-solutions'
                     ],
                     'blocks' => [
                         [
@@ -98,11 +98,11 @@ class HomeController extends Controller {
                     ]
                 ],
                 [
-                    'id' => 'featured-products',
+                    'id' => 'heyp-highlights',
                     'heading' => [
                         'level' => 1,
-                        'text' => 'Sản Phẩm Nổi Bật',
-                        'anchorId' => 'featured-products'
+                        'text' => 'Điểm Nổi Bật Của HEYP',
+                        'anchorId' => 'heyp-highlights'
                     ],
                     'blocks' => [
                         [
@@ -111,7 +111,7 @@ class HomeController extends Controller {
                         ],
                         [
                             'type' => 'image',
-                            'src' => 'public/img/products/vn-11134210-7r98o-lqarr1ni06vm7c.webp',
+                            'src' => 'public/img/logoHEYP.png',
                             'alt' => 'Sản phẩm HEYP'
                         ]
                     ]
@@ -139,7 +139,7 @@ class HomeController extends Controller {
                         ],
                         [
                             'type' => 'image',
-                            'src' => 'public/img/products/vn-11134210-7r98o-lqarr1ni06vm7c.webp',
+                            'src' => 'public/img/logoHEYP.png',
                             'alt' => 'About Heyp'
                         ]
                     ]

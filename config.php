@@ -161,13 +161,6 @@ if ($is_local_development) {
     define('URL_ROOT', 'https://heypvietnam.com');
 }
 
-// File upload configuration
-define('MAX_FILE_SIZE', 10 * 1024 * 1024); // 10MB
-define('UPLOAD_PATH', APP_ROOT . '/public/img/products/');
-define('VIDEO_UPLOAD_PATH', APP_ROOT . '/public/videos/products/');
-define('ALLOWED_IMAGE_TYPES', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-define('ALLOWED_VIDEO_TYPES', ['mp4', 'avi', 'mov', 'wmv']);
-
 // Site colors
 define('COLOR_PRIMARY_BG', '#F5F5F0');
 define('COLOR_SECONDARY_BG_1', '#A8B5A2'); // sage green
@@ -180,29 +173,11 @@ define('COLOR_ACCENT', '#FFFFFF');
 define('SESSION_TIMEOUT', 3600); // 1 hour
 define('CSRF_TOKEN_NAME', 'csrf_token');
 
-// Pagination
-define('PRODUCTS_PER_PAGE', 20);
-define('ADMIN_PRODUCTS_PER_PAGE', 50);
-
 // Debug mode
 define('DEBUG', ENVIRONMENT === 'development');
 
 // Timezone
 date_default_timezone_set('Asia/Ho_Chi_Minh');
-
-// Auto-create upload directories if they don't exist
-if (!is_dir(UPLOAD_PATH)) {
-    if (!@mkdir(UPLOAD_PATH, 0755, true) && !is_dir(UPLOAD_PATH)) {
-        // Silently fail if we can't create the directory
-        error_log("Warning: Could not create upload directory: " . UPLOAD_PATH);
-    }
-}
-if (!is_dir(VIDEO_UPLOAD_PATH)) {
-    if (!@mkdir(VIDEO_UPLOAD_PATH, 0755, true) && !is_dir(VIDEO_UPLOAD_PATH)) {
-        // Silently fail if we can't create the directory
-        error_log("Warning: Could not create video upload directory: " . VIDEO_UPLOAD_PATH);
-    }
-}
 
 // Helper function to generate CSRF token
 function generateCSRFToken() {

@@ -23,11 +23,7 @@ function customErrorHandler($errno, $errstr, $errfile, $errline) {
     $isJsonRequest = isset($_SERVER['CONTENT_TYPE']) &&
                      strpos($_SERVER['CONTENT_TYPE'], 'application/json') !== false;
 
-    // Check if URL contains admin/products/toggle-stock
-    $isToggleStock = isset($_SERVER['REQUEST_URI']) &&
-                     strpos($_SERVER['REQUEST_URI'], 'toggle-stock') !== false;
-
-    if ($isAjax || $isJsonRequest || $isToggleStock) {
+    if ($isAjax || $isJsonRequest) {
         // For AJAX/JSON requests, return JSON error
         header('Content-Type: application/json');
         echo json_encode(['success' => false, 'message' => "Error: [$errno] $errstr in $errfile on line $errline"]);
@@ -58,18 +54,12 @@ require_once 'app/core/App.php';
 require_once 'app/core/Controller.php';
 require_once 'app/core/Database.php';
 
-// Load helpers
-require_once 'app/helpers/ImageHelper.php';
-
 // Load all models
 foreach ([
-    'app/models/Product.php',
-    'app/models/Category.php',
     'app/models/Admin.php',
     'app/models/Subscriber.php',
     'app/models/Setting.php',
-    'app/models/ProductImage.php',
-    'app/models/ProductCustomField.php'
+    'app/models/Page.php'
 ] as $modelFile) {
     if (file_exists($modelFile)) {
         require_once $modelFile;

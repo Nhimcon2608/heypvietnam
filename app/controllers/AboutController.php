@@ -5,11 +5,9 @@ use App\Core\Controller;
 
 class AboutController extends Controller {
     private $settingModel;
-    private $categoryModel;
 
     public function __construct() {
         $this->settingModel = $this->model('Setting');
-        $this->categoryModel = $this->model('Category');
     }
 
     public function index() {
@@ -29,9 +27,6 @@ class AboutController extends Controller {
         $aboutCTADescription = $this->settingModel->getSettingValue('about_cta_description', 'Hãy cùng HeypVietNam xây dựng một tương lai xanh hơn, bền vững hơn. Mỗi sản phẩm bạn chọn là một bước tiến nhỏ trong hành trình bảo vệ môi trường.');
         $aboutCTAButton = $this->settingModel->getSettingValue('about_cta_button', 'Khám Phá Sản Phẩm');
 
-        // Get categories for the categories section
-        $categories = $this->categoryModel->getAll();
-
         $data = [
             'title' => $aboutTitle,
             'hero_description' => $aboutHeroDescription,
@@ -42,8 +37,7 @@ class AboutController extends Controller {
             'values_title' => $aboutValuesTitle,
             'cta_title' => $aboutCTA,
             'cta_description' => $aboutCTADescription,
-            'cta_button' => $aboutCTAButton,
-            'categories' => $categories
+            'cta_button' => $aboutCTAButton
         ];
 
         $this->viewWithLayout('pages/about', $data);

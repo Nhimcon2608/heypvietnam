@@ -30,29 +30,17 @@ class App {
 
             // Handle nested admin routes
             if(isset($url[0])) {
-                $section = $url[0]; // e.g., 'categories', 'products'
+                $section = $url[0];
 
-                // Check for nested actions like /admin/categories/edit/9
                 if(isset($url[1])) {
-                    $action = $url[1]; // e.g., 'edit', 'delete'
-
-                    // Special handling for toggle-stock and delete-multiple
-                    if ($section === 'products' && $action === 'toggle-stock') {
-                        $methodName = 'toggleStock';
-                    } elseif ($section === 'products' && $action === 'delete-multiple') {
-                        $methodName = 'deleteMultiple';
-                    } else {
-                        // Create method name like 'editCategory', 'deleteCategory'
-                        $sectionSingular = $section;
-                        if (substr($section, -3) === 'ies') {
-                            $sectionSingular = substr($section, 0, -3) . 'y'; // categories -> category
-                        } elseif (substr($section, -1) === 's') {
-                            $sectionSingular = substr($section, 0, -1); // products -> product
-                        }
-                        $methodName = $action . ucfirst($sectionSingular);
+                    $action = $url[1];
+                    $sectionSingular = $section;
+                    if (substr($section, -3) === 'ies') {
+                        $sectionSingular = substr($section, 0, -3) . 'y';
+                    } elseif (substr($section, -1) === 's') {
+                        $sectionSingular = substr($section, 0, -1);
                     }
-
-
+                    $methodName = $action . ucfirst($sectionSingular);
 
                     if (method_exists($controllerClass, $methodName)) {
                         $this->method = $methodName;
@@ -70,7 +58,6 @@ class App {
 
                     }
                 } else {
-                    // Simple section route like /admin/categories
                     if (method_exists($controllerClass, $section)) {
                         $this->method = $section;
                         $this->params = [];
@@ -94,10 +81,16 @@ class App {
         }
         
         // User section (default)
-        // Check if controller exists
-        if(isset($url[0]) && file_exists('app/controllers/' . ucwords($url[0]) . 'Controller.php')) {
-            $this->controller = ucwords($url[0]) . 'Controller';
-            unset($url[0]);
+        if(isset($url[0])) {
+            $requestedController = ucwords($url[0]) . 'Controller';
+            if (file_exists('app/controllers/' . $requestedController . '.php')) {
+                $this->controller = $requestedController;
+                unset($url[0]);
+            } else {
+                http_response_code(404);
+                echo 'Trang không tồn tại';
+                return;
+            }
         }
         
         // Require the controller

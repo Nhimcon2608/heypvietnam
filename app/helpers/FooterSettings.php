@@ -36,16 +36,7 @@ if (!function_exists('heypFooterDefaultContent')) {
             'quick_links' => [
                 ['label' => 'Trang Chủ', 'url' => '/'],
                 ['label' => 'Giới Thiệu', 'url' => '/about'],
-                ['label' => 'Sản Phẩm', 'url' => '/products'],
                 ['label' => 'Liên Hệ', 'url' => '/contact']
-            ],
-            'category_title' => 'Danh Mục Sản Phẩm',
-            'category_links' => [
-                ['label' => 'Túi, màng bọc thực phẩm', 'url' => '/products/category/1'],
-                ['label' => 'Tắm & chăm sóc cơ thể', 'url' => '/products/category/2'],
-                ['label' => 'Đồ dùng phòng tắm', 'url' => '/products/category/3'],
-                ['label' => 'Giặt giũ & Chăm sóc nhà cửa', 'url' => '/products/category/4'],
-                ['label' => 'Đồ dùng nhà bếp', 'url' => '/products/category/5']
             ],
             'copyright' => '© {year} {site_name}. Tất cả quyền được bảo lưu.'
         ];
@@ -147,8 +138,6 @@ if (!function_exists('heypFooterNormalizeContent')) {
             'socials' => heypFooterNormalizeSocials($content['socials'] ?? [], $defaults['socials']),
             'quick_title' => heypFooterContentValue($content, 'quick_title', $defaults['quick_title']),
             'quick_links' => heypFooterNormalizeLinks($content['quick_links'] ?? [], $defaults['quick_links']),
-            'category_title' => heypFooterContentValue($content, 'category_title', $defaults['category_title']),
-            'category_links' => heypFooterNormalizeLinks($content['category_links'] ?? [], $defaults['category_links']),
             'copyright' => heypFooterContentValue($content, 'copyright', $defaults['copyright'])
         ];
     }
@@ -304,18 +293,6 @@ if (!function_exists('heypFooterDefaultCanvasContent')) {
         foreach ($footer['quick_links'] as $index => $link) {
             $elements[] = heypFooterCanvasTextElement('footer-quick-link-' . ($index + 1), $link['label'], 520, 98 + ($index * 36), 230, 30, $zIndex++, [
                 'fontSize' => 16,
-                'color' => '#f8fafc'
-            ], $link['url']);
-        }
-
-        $elements[] = heypFooterCanvasTextElement('footer-category-title', $footer['category_title'], 790, 48, 330, 36, $zIndex++, [
-            'fontFamily' => 'Montserrat',
-            'fontSize' => 21,
-            'fontWeight' => '700'
-        ]);
-        foreach ($footer['category_links'] as $index => $link) {
-            $elements[] = heypFooterCanvasTextElement('footer-category-link-' . ($index + 1), $link['label'], 790, 98 + ($index * 36), 340, 30, $zIndex++, [
-                'fontSize' => 15,
                 'color' => '#f8fafc'
             ], $link['url']);
         }

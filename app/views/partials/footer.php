@@ -205,16 +205,6 @@ $copyright = str_replace(
                 </ul>
             </div>
 
-            <div class="footer-section categories">
-                <?php if (($footer['category_title'] ?? '') !== ''): ?>
-                    <h3><?php echo $footerEscape($footer['category_title']); ?></h3>
-                <?php endif; ?>
-                <ul>
-                    <?php foreach (($footer['category_links'] ?? []) as $link): ?>
-                        <li><a href="<?php echo $footerEscape($footerUrl($link['url'] ?? '')); ?>"><?php echo $footerEscape($link['label'] ?? ''); ?></a></li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
         </div>
     </div>
 

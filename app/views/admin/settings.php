@@ -40,18 +40,6 @@ if (!defined('URL_ROOT')) {
                         <span>Dashboard</span>
                     </a>
                 </li>
-                <li>
-                    <a href="<?php echo URL_ROOT; ?>/admin/products">
-                        <i class="fas fa-box"></i>
-                        <span>Sản phẩm</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="<?php echo URL_ROOT; ?>/admin/categories">
-                        <i class="fas fa-list"></i>
-                        <span>Danh mục</span>
-                    </a>
-                </li>
                 <li class="active">
                     <a href="<?php echo URL_ROOT; ?>/admin/settings">
                         <i class="fas fa-cog"></i>

@@ -152,7 +152,7 @@ class Database {
     private function ensureRequiredTablesExist() {
         try {
             // Check if database.sql file exists and import it if tables are missing
-            $requiredTables = ['categories', 'products', 'product_images', 'admins', 'subscribers', 'settings'];
+            $requiredTables = ['admins', 'subscribers', 'settings', 'pages'];
             $missingTables = [];
             
             foreach ($requiredTables as $table) {

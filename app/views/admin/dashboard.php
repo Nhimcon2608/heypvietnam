@@ -492,21 +492,6 @@ ul {
     margin-right: 15px;
 }
 
-.products-card .stats-card-icon {
-    background: linear-gradient(135deg, rgba(45, 90, 39, 0.1) 0%, rgba(74, 124, 89, 0.1) 100%);
-    color: var(--secondary-bg-1);
-}
-
-.categories-card .stats-card-icon {
-    background: linear-gradient(135deg, rgba(74, 124, 89, 0.1) 0%, rgba(107, 142, 35, 0.1) 100%);
-    color: var(--secondary-bg-2);
-}
-
-.featured-card .stats-card-icon {
-    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(251, 191, 36, 0.1) 100%);
-    color: var(--warning-color);
-}
-
 .views-card .stats-card-icon {
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(52, 211, 153, 0.1) 100%);
     color: var(--success-color);
@@ -892,18 +877,6 @@ ul {
                     </a>
                 </li>
                 <li>
-                    <a href="<?php echo URL_ROOT; ?>/admin/products">
-                        <i class="fas fa-box"></i>
-                        <span>Sản phẩm</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="<?php echo URL_ROOT; ?>/admin/categories">
-                        <i class="fas fa-list"></i>
-                        <span>Danh mục</span>
-                    </a>
-                </li>
-                <li>
                     <a href="<?php echo URL_ROOT; ?>/admin/settings">
                         <i class="fas fa-cog"></i>
                         <span>Cài đặt</span>
@@ -981,59 +954,7 @@ ul {
                     </div>
                 </div>
 
-                <!-- Stats Cards -->
                 <div class="row stats-cards">
-                    <div class="col-md-6 col-lg-3 mb-4">
-                        <div class="stats-card products-card">
-                            <div class="stats-card-content">
-                                <div class="stats-card-icon">
-                                    <i class="fas fa-box"></i>
-                                </div>
-                                <div class="stats-card-info">
-                                    <h5>Tổng sản phẩm</h5>
-                                    <h3><?php echo isset($data['productsCount']) ? $data['productsCount'] : 0; ?></h3>
-                                </div>
-                            </div>
-                            <div class="stats-card-action">
-                                <a href="<?php echo URL_ROOT; ?>/admin/products">Xem chi tiết <i class="fas fa-arrow-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6 col-lg-3 mb-4">
-                        <div class="stats-card categories-card">
-                            <div class="stats-card-content">
-                                <div class="stats-card-icon">
-                                    <i class="fas fa-list"></i>
-                                </div>
-                                <div class="stats-card-info">
-                                    <h5>Tổng danh mục</h5>
-                                    <h3><?php echo isset($data['categoriesCount']) ? $data['categoriesCount'] : 0; ?></h3>
-                                </div>
-                            </div>
-                            <div class="stats-card-action">
-                                <a href="<?php echo URL_ROOT; ?>/admin/categories">Xem chi tiết <i class="fas fa-arrow-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-md-6 col-lg-3 mb-4">
-                        <div class="stats-card featured-card">
-                            <div class="stats-card-content">
-                                <div class="stats-card-icon">
-                                    <i class="fas fa-star"></i>
-                                </div>
-                                <div class="stats-card-info">
-                                    <h5>Sản phẩm nổi bật</h5>
-                                    <h3><?php echo isset($data['featuredCount']) ? $data['featuredCount'] : 0; ?></h3>
-                                </div>
-                            </div>
-                            <div class="stats-card-action">
-                                <a href="<?php echo URL_ROOT; ?>/admin/products?featured=1">Xem chi tiết <i class="fas fa-arrow-right"></i></a>
-                            </div>
-                        </div>
-                    </div>
-                    
                     <div class="col-md-6 col-lg-3 mb-4">
                         <div class="stats-card views-card">
                             <div class="stats-card-content">
@@ -1061,18 +982,6 @@ ul {
                             </div>
                             <div class="card-body">
                                 <div class="quick-actions">
-                                    <a href="<?php echo URL_ROOT; ?>/admin/products/add" class="quick-action-btn">
-                                        <div class="icon">
-                                            <i class="fas fa-plus-circle"></i>
-                                        </div>
-                                        <span>Thêm sản phẩm</span>
-                                    </a>
-                                    <a href="<?php echo URL_ROOT; ?>/admin/categories/add" class="quick-action-btn">
-                                        <div class="icon">
-                                            <i class="fas fa-folder-plus"></i>
-                                        </div>
-                                        <span>Thêm danh mục</span>
-                                    </a>
                                     <a href="<?php echo URL_ROOT; ?>/admin/settings" class="quick-action-btn">
                                         <div class="icon">
                                             <i class="fas fa-cog"></i>

@@ -94,16 +94,7 @@ $headerLogoSrc = function_exists('landingPageAssetUrl') ? landingPageAssetUrl($h
                 <?php else: ?>
                     <li><a href="<?php echo URL_ROOT; ?>">Trang Chủ</a></li>
                     <li><a href="<?php echo URL_ROOT; ?>/about">Giới Thiệu</a></li>
-                    <li class="dropdown">
-                        <a href="<?php echo URL_ROOT; ?>/products" class="dropdown-toggle">Sản Phẩm</a>
-                        <ul class="custom-dropdown-menu">
-                            <li><a href="<?php echo URL_ROOT; ?>/products/category/1">Túi, màng bọc thực phẩm</a></li>
-                            <li><a href="<?php echo URL_ROOT; ?>/products/category/2">Tắm & chăm sóc cơ thể</a></li>
-                            <li><a href="<?php echo URL_ROOT; ?>/products/category/3">Đồ dùng phòng tắm</a></li>
-                            <li><a href="<?php echo URL_ROOT; ?>/products/category/4">Giặt giũ & Chăm sóc nhà cửa</a></li>
-                            <li><a href="<?php echo URL_ROOT; ?>/products/category/5">Đồ dùng nhà bếp và hộp đựng thực phẩm</a></li>
-                        </ul>
-                    </li>
+                    <li><a href="<?php echo URL_ROOT; ?>/contact">Liên Hệ</a></li>
                 <?php endif; ?>
             </ul>
         </nav>

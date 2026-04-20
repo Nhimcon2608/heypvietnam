@@ -107,11 +107,11 @@ VALUES (
         ]
       },
       {
-        "id": "product-categories",
+        "id": "care-solutions",
         "heading": {
           "level": 1,
-          "text": "Danh Mục Sản Phẩm",
-          "anchorId": "product-categories"
+          "text": "Giải Pháp Theo Nhu Cầu",
+          "anchorId": "care-solutions"
         },
         "blocks": [
           {
@@ -126,11 +126,11 @@ VALUES (
         ]
       },
       {
-        "id": "featured-products",
+        "id": "heyp-highlights",
         "heading": {
           "level": 1,
-          "text": "Sản Phẩm Nổi Bật",
-          "anchorId": "featured-products"
+          "text": "Điểm Nổi Bật Của HEYP",
+          "anchorId": "heyp-highlights"
         },
         "blocks": [
           {
@@ -139,7 +139,7 @@ VALUES (
           },
           {
             "type": "image",
-            "src": "public/img/products/vn-11134210-7r98o-lqarr1ni06vm7c.webp",
+            "src": "public/img/logoHEYP.png",
             "alt": "Sản phẩm HEYP",
             "caption": ""
           }
@@ -168,7 +168,7 @@ VALUES (
           },
           {
             "type": "image",
-            "src": "public/img/products/vn-11134210-7r98o-lqarr1ni06vm7c.webp",
+            "src": "public/img/logoHEYP.png",
             "alt": "About Heyp",
             "caption": ""
           }
